@@ -1,35 +1,13 @@
 import { setTimeout as delay } from 'node:timers/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
-import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-api-session-controller'
-import { installModelSelection, type Agent, type AgentHandle, type ModelSelectionRef } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentHandle } from '@deepseek-ai/dsh-agent'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { inheritedContextText, registerInheritedContext } from './context.ts'
 import { appendPluginRecord } from '@deepseek-ai/dsh-session'
 import { isSideTaskDescriptor, sideTaskContext } from './shared.ts'
-import type { ConfigureSideTaskRequest, ConfigureSideTaskResult, SideChatModel } from './types.ts'
-
-interface ModelResolver {
-  resolveCallConfig(selection: SideChatModel, signal: AbortSignal): Promise<SideChatModel>
-  resolveModelInfo(provider: string, model: string, signal: AbortSignal): Promise<unknown>
-}
-/** Latest durable selection the child itself recorded. */
-function latestSelection(agent: Agent): SideChatModel | undefined {
-  const events = agent.session.snapshotEvents().slice(agent.session.inheritedEventCount)
-  const selected = events.findLast(event => event.type === 'model/selection')?.data
-  return selected === undefined ? undefined : {
-    provider: selected.provider,
-    model: selected.model,
-    ...(selected.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(selected.reasoningEffort) }),
-  }
-}
-
-function sameSelection(left: SideChatModel, right: SideChatModel): boolean {
-  return left.provider === right.provider
-    && left.model === right.model
-    && (left.reasoningEffort ?? undefined) === (right.reasoningEffort ?? undefined)
-}
+import type { ConfigureSideTaskRequest, ConfigureSideTaskResult } from './types.ts'
 
 interface Commands {
   execute(agent: Agent, line: string, attachments: readonly never[], signal: AbortSignal): Promise<{
@@ -39,8 +17,6 @@ interface Commands {
 
 /** Settings belong to the exact child Agent and its own durable log. */
 export class SideChatSettings {
-  private readonly selections = new WeakMap<Agent, ModelSelectionRef>()
-  private readonly installed = new Map<Agent, () => void>()
   private readonly contexts = new Map<Agent, { text: string; dispose?: () => void }>()
   private readonly attaching = new Map<Agent, { controller: AbortController; promise: Promise<undefined> }>()
   private readonly serial = new Map<SessionId, Promise<unknown>>()
@@ -51,7 +27,7 @@ export class SideChatSettings {
     ctx.on('agent/disposed', ({ agent }) => { this.release(agent) })
     ctx.effect(() => () => {
       this.active = false
-      for (const agent of new Set([...this.installed.keys(), ...this.contexts.keys(), ...this.attaching.keys()])) {
+      for (const agent of new Set([...this.contexts.keys(), ...this.attaching.keys()])) {
         this.release(agent)
       }
     }, 'side-tasks: child settings middleware')
@@ -74,34 +50,11 @@ export class SideChatSettings {
       && isSideTaskDescriptor(agent.session.snapshotEvents(), agent.session.inheritedEventCount)?.childSessionId === agent.id
   }
 
-  /** Install before a resumed manager child admits its first model request. */
-  restore(agent: Agent): void {
-    if (!this.active || this.selections.has(agent) || !this.owned(agent)) return
-    const events = agent.session.snapshotEvents()
-    const own = events.slice(agent.session.inheritedEventCount)
-    const picked = own.findLast(event => event.type === 'model/selection')
-    const lastUsed = own.findLast(event => event.type === 'request/header')
-    const selected = picked?.data ?? lastUsed?.data.header.config
-    const selection = selected === undefined ? undefined : {
-      provider: selected.provider,
-      model: selected.model,
-      ...(selected.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(selected.reasoningEffort) }),
-    }
-    if (selection === undefined) return
-    const ref: ModelSelectionRef = { current: selection, assembled: undefined }
-    this.selections.set(agent, ref)
-    this.applyOptions(agent, selection)
-    this.installed.set(agent, installModelSelection(agent.ctx, ref))
-  }
-
   private release(agent: Agent): void {
     this.attaching.get(agent)?.controller.abort()
     this.attaching.delete(agent)
-    this.installed.get(agent)?.()
-    this.installed.delete(agent)
     this.contexts.get(agent)?.dispose?.()
     this.contexts.delete(agent)
-    this.selections.delete(agent)
   }
 
   /**
@@ -114,7 +67,6 @@ export class SideChatSettings {
       if (!this.active || !this.owned(agent)) return undefined
       const pending = this.attaching.get(agent)
       if (pending !== undefined) return pending.promise
-      this.restore(agent)
       if (this.contexts.has(agent)) return undefined
       const descriptor = isSideTaskDescriptor(agent.session.snapshotEvents(), agent.session.inheritedEventCount)
       if (descriptor === undefined || descriptor.childSessionId !== agent.id) return undefined
@@ -169,14 +121,6 @@ export class SideChatSettings {
     }
   }
 
-  private applyOptions(agent: Agent, selection: SideChatModel): void {
-    // The manager uses these same public options for image-modality admission.
-    agent.options.provider = selection.provider
-    agent.options.model = selection.model
-    if (selection.reasoningEffort === undefined) delete agent.options.reasoningEffort
-    else agent.options.reasoningEffort = selection.reasoningEffort
-  }
-
   configure(request: ConfigureSideTaskRequest, signal: AbortSignal): Promise<ConfigureSideTaskResult> {
     return this.exclusive(request.childSessionId, async () => {
       signal.throwIfAborted()
@@ -189,20 +133,15 @@ export class SideChatSettings {
         || descriptor.childSessionId !== request.childSessionId) {
         throw new Error('The requested child is not owned by this plugin.')
       }
-      let selected: SideChatModel | undefined
       if (request.kind === 'model') {
-        const llm = this.ctx.get('llm') as ModelResolver | undefined
-        if (llm === undefined) throw new Error('Model service is unavailable.')
-        await llm.resolveModelInfo(request.selection.provider, request.selection.model, signal)
-        const resolved = await llm.resolveCallConfig(request.selection, signal)
-        selected = { provider: resolved.provider, model: resolved.model,
-          ...(resolved.reasoningEffort === undefined ? {} : { reasoningEffort: resolved.reasoningEffort }) }
-      } else {
-        if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(request.preset)) throw new Error('Invalid permission preset.')
-        const presets = this.ctx.get('permissionPresets') as { resolve(name: string): unknown } | undefined
-        if (presets === undefined) throw new Error('Permission presets are unavailable.')
-        presets.resolve(request.preset)
+        signal.throwIfAborted()
+        await this.ctx.sessionController.selectModel({ sessionId: request.childSessionId, ...request.selection })
+        return { configured: true }
       }
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(request.preset)) throw new Error('Invalid permission preset.')
+      const presets = this.ctx.get('permissionPresets') as { resolve(name: string): unknown } | undefined
+      if (presets === undefined) throw new Error('Permission presets are unavailable.')
+      presets.resolve(request.preset)
       signal.throwIfAborted()
       let owned: AgentHandle | undefined
       let agent = this.ctx.agents.get(request.childSessionId)
@@ -241,24 +180,10 @@ export class SideChatSettings {
       }
       try {
         if (this.ctx.workspaceRegistry.archivedSessionIds.includes(agent.id)) throw new Error('The side chat is archived.')
-        if (selected !== undefined) {
-          // Re-selecting the current model must not append a duplicate
-          // selection event on every menu click.
-          const previous = latestSelection(agent)
-          if (previous === undefined || !sameSelection(previous, selected)) {
-            agent.session.append('model/selection', selected)
-          }
-          this.restore(agent)
-          const ref = this.selections.get(agent)
-          if (ref === undefined) throw new Error('Could not install side-chat model selection.')
-          ref.current = selected
-          this.applyOptions(agent, selected)
-        } else if (request.kind === 'permission') {
-          const commands = this.ctx.get('commands') as Commands | undefined
-          if (commands === undefined) throw new Error('Permission commands are unavailable.')
-          const execution = await commands.execute(agent, `/permission ${request.preset}`, [], signal)
-          if (execution?.result.kind !== 'success') throw new Error(execution?.result.text ?? 'Permission change failed.')
-        }
+        const commands = this.ctx.get('commands') as Commands | undefined
+        if (commands === undefined) throw new Error('Permission commands are unavailable.')
+        const execution = await commands.execute(agent, `/permission ${request.preset}`, [], signal)
+        if (execution?.result.kind !== 'success') throw new Error(execution?.result.text ?? 'Permission change failed.')
         return { configured: true }
       } finally {
         // Only dispose our temporary writer, never a manager-owned live Agent.

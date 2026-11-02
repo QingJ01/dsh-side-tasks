@@ -67,7 +67,7 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 
 **删除语义**：Harness 的公开插件 API 提供的是持久化归档，不提供物理删除会话日志。本插件使用受支持的生命周期，不直接修改会话文件；界面中的“结束并移除”不代表擦除磁盘记录。
 
-**子会话设置**：原生菜单接到插件专用配置接口，校验 `sidechat` origin 与 child 自有 descriptor。空闲配置使用临时 writer，释放后才恢复发送；运行中的 manager Agent 不会被设置操作释放。模型/推理等级、preset、工作目录与有效权限选择均通过只读来源查询捕获，并独立记录和恢复在 child 上；不会恢复或激活来源。
+**子会话设置**：原生 Conversation 提供唯一一组模型/推理等级与权限菜单，调用 child 自己的原生 Session controller。Harness 适配确保侧聊模型选择不修改全局默认值。模型/推理等级、preset、工作目录与有效权限选择均通过只读来源查询捕获，并独立记录和恢复在 child 上；不会恢复或激活来源。保留的兼容配置接口仍校验独立 origin 与 child 自有 descriptor，并将模型选择交给同一个原生 controller。
 
 **旧侧聊**：旧 continuable 地址只用于显示迁移提示和提供安全关闭。冷的旧 child 可通过只读查询校验后归档；仍驻留的旧 child 会被拒绝。请先重启已打补丁的 Harness，再关闭旧标签或创建新的独立侧聊。插件不会恢复、配置或发送旧 child，也不会改写历史日志。
 
@@ -99,7 +99,7 @@ pnpm --filter dsh-side-tasks pack --pack-destination dist
 
 ## 测试覆盖
 
-测试覆盖：继承上下文格式化与回合截断、标签复用及收起后重新展开、无 seed 创建、原生模型/权限控件适配、父会话不变性、配置期间暂停发送、冷恢复模型、配置 Remote 校验、专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 参数/结果钉扎、真实 keyed SlotCore 所有权、标签地址与标题、归档优先的关闭生命周期、跨版本 descriptor 所有权校验、拒绝伪装标签误删、父 Agent 离线归档、持久化且有界的重试队列、存储 getter 抛错隔离、UI 异步注册失败回滚与 locale 冲突隔离、idle 创建时释放 writer、StrictMode 去重、创建后关闭的迟到结果清理、原生 Conversation 接入、首回合边界、并发重试队列合并、header 单面板打开原生会话、资源失败帧、多资源引用与最终释放、卸载/释放时取消上下文读取并忽略迟到结果、子会话/归档父会话禁止创建、包导出完整性，以及临时空状态提示。
+测试覆盖：继承上下文格式化与回合截断、标签复用及收起后重新展开、无 seed 创建、原生模型选择委托与 composer 控件非替换、父会话不变性、冷恢复模型、配置 Remote 校验、专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 参数/结果钉扎、真实 keyed SlotCore 所有权、标签地址与标题、归档优先的关闭生命周期、跨版本 descriptor 所有权校验、拒绝伪装标签误删、父 Agent 离线归档、持久化且有界的重试队列、存储 getter 抛错隔离、UI 异步注册失败回滚与 locale 冲突隔离、idle 创建时释放 writer、StrictMode 去重、创建后关闭的迟到结果清理、原生 Conversation 接入、首回合边界、并发重试队列合并、header 单面板打开原生会话、资源失败帧、多资源引用与最终释放、卸载/释放时取消上下文读取并忽略迟到结果、子会话/归档父会话禁止创建、包导出完整性，以及临时空状态提示。
 
 ## License
 

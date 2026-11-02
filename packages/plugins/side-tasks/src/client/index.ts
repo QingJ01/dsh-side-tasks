@@ -26,7 +26,6 @@ import {
 } from './discard-queue.ts'
 import { SideTaskAction } from './SideTaskAction.tsx'
 import { registerSideChat } from './sidebar-chat.tsx'
-import { registerSideChatControls } from './controls.tsx'
 import { SideChatPreparations } from './preparation.ts'
 import { en, NS, zh, type SideTaskKey } from './locales.ts'
 
@@ -114,7 +113,6 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     scope.effect(() => () => { preparations.dispose() }, 'side-tasks: pending creations')
     const addresses = new Map<SessionId, SideTaskAddress>()
     registerSideChat(scope, sessions, t, preparations, addresses)
-    registerSideChatControls(scope, sessions, addresses, request => scope.remote.sideTasks.configure(request))
     void flushPendingDiscards(storage, request => remote.discard(request), {
       shouldSkip: request => sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0
         || scope.sidebarRight.openTabs.getSnapshot().some((tab: { contentId: string }) =>

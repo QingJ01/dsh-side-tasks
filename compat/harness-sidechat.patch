@@ -2243,7 +2243,7 @@ index 1a778923..72daa1be 100644
    en: 541354f6468e117d
    zh: 2d7a665bad828a02
 diff --git a/docs/subsystems/session.md b/docs/subsystems/session.md
-index 4933734d..8de75f2b 100644
+index 4933734d..4f44a176 100644
 --- a/docs/subsystems/session.md
 +++ b/docs/subsystems/session.md
 @@ -6,6 +6,8 @@ The in-memory, event-sourced model of [dsh-session](../../packages/core/session)
@@ -2255,6 +2255,15 @@ index 4933734d..8de75f2b 100644
  ## `SessionEventMap` — the event vocabulary
 
  The append-only event types. Merge-extensible: a plugin declares extra event types via declaration merging — e.g. the [compaction seam](compaction.md) adds `compaction/start` / `compaction/summary` / `compaction/end`, and `@deepseek-ai/dsh-hook-protocol` adds log-only `hook/invoked` / `hook/result` records for a hook bridge. Like `compaction/*`, these are NOT `SurfaceEventType`s (no `surfaceOp`). The generated [persistence log event catalog](../persistence-catalog.md) enumerates every member — core and merged — with its payload, surface badge, and declaration site.
+@@ -865,7 +867,7 @@ inspect( sessionId: SessionId, signal?: AbortSignal, ): Promise<SessionInspectio
+ @Remote('create') create(request: SessionCreateRequest): Promise<SessionCreateValue>
+
+ /**
+- * Select one Session-local model after explicitly resuming the Session; save the default in the background.
++ * Select one Session-local model after explicitly resuming the Session; sidechats leave the shared default unchanged.
+  * @param request - Session identity and requested model selection.
+  * @returns the normalized selection installed for the Session, without waiting for default persistence.
+  */
 diff --git a/docs/subsystems/session.zh.md b/docs/subsystems/session.zh.md
 index a3e5446b..6b58923f 100644
 --- a/docs/subsystems/session.zh.md
@@ -2268,6 +2277,47 @@ index a3e5446b..6b58923f 100644
  ## `SessionEventMap`：事件词汇
 
  仅追加的事件类型。可通过声明合并扩展：插件通过 declaration merging 声明额外的事件类型。例如[压缩（compaction） seam](compaction.zh.md) 添加了 `compaction/start` / `compaction/summary` / `compaction/end`，`@deepseek-ai/dsh-hook-protocol` 为钩子桥接添加了仅记录日志的 `hook/invoked` / `hook/result` 记录。与 `compaction/*` 一样，这些都不是 `SurfaceEventType`（没有 `surfaceOp`）。生成的[持久化日志事件目录](../persistence-catalog.zh.md)列举了所有成员（核心与合并扩展的），包含其 payload、surface 标记与声明位置。
+diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml
+index 46f67080..17b39f72 100644
+--- a/packages/api/session-controller/README.i18n.yaml
++++ b/packages/api/session-controller/README.i18n.yaml
+@@ -21,8 +21,8 @@
+   en: 41bdda1ac32df558
+   zh: aa5d0e325924066b
+ /session-controller/session-media-references:
+-  en: 266ab2b1e2fec542
+-  zh: b3450ae28a1e0baf
++  en: 4a795569126cf4cb
++  zh: 6beed0b65daa7fb5
+ /session-controller/configuration:
+   en: 5ae2b340c630897f
+   zh: 1ffbd61ecf302ec2
+diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md
+index 02dff176..0ca43c00 100644
+--- a/packages/api/session-controller/README.md
++++ b/packages/api/session-controller/README.md
+@@ -88,7 +88,7 @@ References keep local Session data, scoped Contexts, and history streams alive,
+
+ GUI model selection requires the exact provider/model pair in the available catalog; unavailable choices reject with `session/model-unavailable`. Prompt admission retains the saved route without a catalog availability gate, so request execution reports missing credentials or unavailable models. `initializeDefaultModel()` saves the first available account model after login when no other provider has a configured API key; credential checks use configured references independently of model availability. A provider with no available models rejects initialization with `session/provider-models-unavailable`. Availability never substitutes another model or rewrites a Session selection.
+
+-A successful `selectModel` response acknowledges the Session-local selection without waiting for the default profile setting to save. Default saves run in the background in submission order; a failure logs a warning and leaves the Session selection intact. New Sessions read the last successfully saved default.
++A successful `selectModel` response acknowledges the Session-local selection without waiting for the shared default to save. Ordinary Sessions save defaults in the background in submission order; a failure logs a warning and leaves the Session selection intact. Sidechat selections never update the shared default. New Sessions read the last successfully saved default.
+
+ -----
+
+diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md
+index b01a99cc..0d3fad9f 100644
+--- a/packages/api/session-controller/README.zh.md
++++ b/packages/api/session-controller/README.zh.md
+@@ -88,7 +88,7 @@ Client 的首次 `follow`、重连首屏与 `loadOlder()` 至少请求 50 条以
+
+ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不可用的选择以 `session/model-unavailable` 拒绝。提示词准入保留已保存的路由，不按目录可用性阻断发送，由请求执行报告凭据缺失或模型不可用。`initializeDefaultModel()` 在账号登录后、其他提供方均未配置 API key 时，将第一个可用账号模型保存为默认模型；凭据检查使用已配置的引用，不依赖模型是否可用。提供方没有可用模型时，初始化以 `session/provider-models-unavailable` 拒绝。可用性变化不会替换模型或改写会话选择。
+
+-`selectModel` 成功返回表示会话级模型选择已生效，不等待默认 profile 设置保存。默认设置在后台按提交顺序保存；保存失败会记录警告，并保留会话选择。新会话读取最近一次成功保存的默认值。
++`selectModel` 成功返回表示会话级模型选择已生效，不等待共享默认值保存。普通 Session 的默认设置在后台按提交顺序保存；保存失败会记录警告，并保留会话选择。sidechat 会话的模型选择不会更新共享默认值。新会话读取最近一次成功保存的默认值。
+
+ -----
+
 diff --git a/packages/api/session-controller/src/agent.ts b/packages/api/session-controller/src/agent.ts
 index aaacc886..abb40e37 100644
 --- a/packages/api/session-controller/src/agent.ts
@@ -2345,8 +2395,40 @@ index 8511b882..f1023cd6 100644
    /** Format classification supplied by the Host list, when available. */
    formatStatus?: SessionListEntry['formatStatus']
    /** Host running state for `ids` members; a display fallback for other rows. */
+diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
+index 8dd38573..23c3750f 100644
+--- a/packages/api/session-controller/src/commands.ts
++++ b/packages/api/session-controller/src/commands.ts
+@@ -150,7 +150,7 @@ export class SessionCommandController {
+   }
+
+   /**
+-   * Validate and install one Session-local model selection; save the default in the background.
++   * Validate and install one Session-local model selection; only ordinary Sessions update the shared default.
+    * @param request - Session identity and requested model selection.
+    * @returns the normalized selection installed for the Session, without waiting for default persistence.
+    */
+@@ -174,11 +174,13 @@ export class SessionCommandController {
+             : { reasoningEffort: resolved.reasoningEffort }),
+         }
+         this.agents.selectForNextRequest(agent, selected)
+-        void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
+-          this.ctx.logger.warn(
+-            `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
+-          )
+-        })
++        if (agent.session.header.origin !== 'sidechat') {
++          void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
++            this.ctx.logger.warn(
++              `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
++            )
++          })
++        }
+         return { selected: { ...selected } }
+       } catch (error) {
+         if (remoteErrorOf(error) !== undefined) throw error
 diff --git a/packages/api/session-controller/src/index.ts b/packages/api/session-controller/src/index.ts
-index 2362bce2..604a2b95 100644
+index 2362bce2..decdf56d 100644
 --- a/packages/api/session-controller/src/index.ts
 +++ b/packages/api/session-controller/src/index.ts
 @@ -117,6 +117,9 @@ export interface SessionControllerInternals {
@@ -2359,6 +2441,15 @@ index 2362bce2..604a2b95 100644
    static inject = [
      'agentDefaultModel',
      'agents',
+@@ -303,7 +306,7 @@ export class SessionController extends TypertRemoteService {
+   }
+
+   /**
+-   * Select one Session-local model after explicitly resuming the Session; save the default in the background.
++   * Select one Session-local model after explicitly resuming the Session; sidechats leave the shared default unchanged.
+    * @param request - Session identity and requested model selection.
+    * @returns the normalized selection installed for the Session, without waiting for default persistence.
+    */
 diff --git a/packages/api/session-controller/src/list.ts b/packages/api/session-controller/src/list.ts
 index d7ef1ad4..8813079e 100644
 --- a/packages/api/session-controller/src/list.ts
@@ -2529,6 +2620,51 @@ index e6ba8321..07fa7d0a 100644
    it('forks a persisted subagent without resuming its Agent', async () => {
      const ctx = await composed()
      const sourceId = sid('session-cold-subagent')
+diff --git a/packages/api/session-controller/tests/session-models.host.spec.ts b/packages/api/session-controller/tests/session-models.host.spec.ts
+index e852460e..86199ada 100644
+--- a/packages/api/session-controller/tests/session-models.host.spec.ts
++++ b/packages/api/session-controller/tests/session-models.host.spec.ts
+@@ -88,7 +88,7 @@ async function harness(logged?: {
+   model: string
+   reasoningEffort?: ReasoningEffortId
+   adapterDefaults?: LlmCallConfigAdapterDefaults
+-}, ctx = new Context()): Promise<{
++}, ctx = new Context(), origin?: 'sidechat'): Promise<{
+   ctx: Context
+   agent: Agent
+   sessionId: SessionId
+@@ -116,7 +116,7 @@ async function harness(logged?: {
+     { provider: 'duplicate', id: 'same', name: 'Same' },
+     { provider: 'duplicate', id: 'same', name: 'Same Again' },
+   ]))
+-  const session = ctx.sessions.create()
++  const session = ctx.sessions.create(undefined, origin === undefined ? undefined : { meta: { origin } })
+   if (logged !== undefined) {
+     const { adapterDefaults, ...config } = logged
+     session.append('request/header', {
+@@ -647,6 +647,22 @@ describe('Web session model selection', () => {
+     expect(saves).toHaveLength(2)
+   })
+
++  it('keeps sidechat model and reasoning selections out of the shared default', async () => {
++    const { ctx, sessionId } = await harness(undefined, new Context(), 'sidechat')
++    onTestFinished(() => ctx.fiber.dispose())
++    const save = vi.fn(async () => {})
++    const remote = createSessionTestRemote(ctx, {
++      defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
++      saveDefaultModelSelection: save,
++      cwd: '/tmp',
++    })
++    const selected = { provider: 'deepseek-official', model: 'deepseek-reasoner', reasoningEffort: 'max' }
++    expectValue(await remote.selectModel({ sessionId, ...selected }))
++    expect(currentSelection(ctx, sessionId)).toEqual(selected)
++    expect(save).not.toHaveBeenCalled()
++    expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'deepseek-official', model: 'deepseek-chat' })
++  })
++
+   it('saves an accepted selection as the default and survives a storage failure', async () => {
+     const { ctx, sessionId } = await harness()
+     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
 diff --git a/packages/bundle/headless/src/index.ts b/packages/bundle/headless/src/index.ts
 index 93006eb8..8a7fa06f 100644
 --- a/packages/bundle/headless/src/index.ts
@@ -3676,10 +3812,10 @@ index 00000000..bb4af6d4
 +  zh: 73eca054d493b4b3
 diff --git a/docs/upgrade-guide/v0.2.1-rc.5/sidechat-origin/guide.md b/docs/upgrade-guide/v0.2.1-rc.5/sidechat-origin/guide.md
 new file mode 100644
-index 00000000..eb46bf12
+index 00000000..0b7f20b1
 --- /dev/null
 +++ b/docs/upgrade-guide/v0.2.1-rc.5/sidechat-origin/guide.md
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,20 @@
 +---
 +kind: upgrade-guide
 +description: "New sidechat Session headers are rejected by older Harness readers."
@@ -3695,15 +3831,17 @@ index 00000000..eb46bf12
 +
 +## Migration
 +
++Sidechat model and reasoning selections remain Session-local and do not update the shared default. Their native composer owns the controls; plugins must not add a second model selector or competing model-selection middleware.
++
 +1. Build or install a Harness version that recognizes `SIDECHAT_SESSION_ORIGIN` before opening Sessions written by a sidechat-capable Host. Do not remove or rewrite the origin field.
 +2. Rebuild the Host and Client from the same compatible source revision so both published capability checks are available.
 +3. Confirm the upgrade by creating a sidechat, restarting Harness, and cold-resuming it. Existing ordinary and subagent Sessions require no conversion.
 diff --git a/docs/upgrade-guide/v0.2.1-rc.5/sidechat-origin/guide.zh.md b/docs/upgrade-guide/v0.2.1-rc.5/sidechat-origin/guide.zh.md
 new file mode 100644
-index 00000000..702d2b63
+index 00000000..953a8770
 --- /dev/null
 +++ b/docs/upgrade-guide/v0.2.1-rc.5/sidechat-origin/guide.zh.md
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,20 @@
 +---
 +kind: upgrade-guide
 +description: "旧版 Harness 读取器会拒绝新的 sidechat Session 头。"
@@ -3718,6 +3856,8 @@ index 00000000..702d2b63
 +Harness 可以在当前 Session 格式中使用 `origin: "sidechat"` 持久化独立的 sidechat 根会话。固定版本 `dsh-v0.2.1-rc.5` 的读取器会在正常使用 Session 之前拒绝此未知 origin；它不会将 sidechat 重新解释为普通根会话或 subagent。现有 `subagent` 头和普通根 Session 的含义保持不变。
 +
 +## 迁移
++
++侧聊的模型与推理等级选择只作用于自身会话，不更新全局默认值。控件由原生 composer 提供；插件不得重复添加模型选择器或另一套模型选择中间件。
 +
 +1. 在打开由支持 sidechat 的 Host 写入的 Session 之前，构建或安装能够识别 `SIDECHAT_SESSION_ORIGIN` 的 Harness 版本。不要删除或改写 origin 字段。
 +2. 从同一兼容源码版本重新构建 Host 和 Client，以确保两端都具有公开能力检查。

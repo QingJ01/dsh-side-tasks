@@ -62,6 +62,7 @@ describe('client creation and close lifecycle', () => {
   })
 
   it('opens children and discards the same identity on tab close without another create', async () => {
+    const registeredSlots: string[] = []
     let registration: { definition: { inject: (id: SessionId) => {
       openSideChat: () => void
     } } } | undefined
@@ -86,7 +87,7 @@ describe('client creation and close lifecycle', () => {
       inject: (_dependencies: string[], callback: (scope: unknown) => unknown) => callback(ctx),
       locale: { register: vi.fn(), bind: vi.fn(() => (key: string) => key) },
       slots: {
-        entries: () => [],
+        entries: () => [{ component: () => null, options: {}, inject: () => ({}) }],
         subscribe: () => () => {},
         inject: (seat: string, callback: () => unknown) => {
           const value = callback() as typeof registration
@@ -94,6 +95,7 @@ describe('client creation and close lifecycle', () => {
           return value
         },
         register: (definition: { name?: string; children?: Record<string, unknown> }) => {
+          if (definition.name !== undefined) registeredSlots.push(definition.name)
           if (definition.name === 'sidebar.right.pane.tab') bodyRegistration = definition
           return { definition }
         },
@@ -130,6 +132,7 @@ describe('client creation and close lifecycle', () => {
     }
     await apply(ctx as never)
 
+    expect(registeredSlots.filter(name => name.startsWith('conversation.input.'))).toEqual([])
     expect(mountRemote).toHaveBeenCalledOnce()
     expect(registration).toBeDefined()
     expect(registerCloseHandler).toHaveBeenCalledWith(SIDE_CHAT_KIND, expect.any(Function))

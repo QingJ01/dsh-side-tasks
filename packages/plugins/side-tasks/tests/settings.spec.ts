@@ -81,6 +81,7 @@ function fixture(options: { live?: boolean; sourceArchived?: boolean; sourceFail
     agents,
     workspaceRegistry: { archivedSessionIds: options.sourceArchived ? [sourceId] : [] },
     sessionQuery: { observeSession },
+    sessionController: { selectModel: vi.fn(async () => ({ selected })) },
     get: (name: string) => name === 'llm' ? {
       resolveModelInfo: vi.fn(async () => ({})),
       resolveCallConfig: vi.fn(async (value: unknown) => value),
@@ -97,20 +98,22 @@ const modelRequest = {
 }
 
 describe('side-chat settings and cold context', () => {
-  it('configures only the owned live child and preserves receiver identity', async () => {
+  it('delegates owned child model selection to the native Session controller', async () => {
     const { settings, ctx, agents, child, append, dispose } = fixture()
     await expect(settings.configure(modelRequest, new AbortController().signal)).resolves.toEqual({ configured: true })
-    expect(append).toHaveBeenCalledWith('model/selection', selected)
-    expect(child.options).toMatchObject(selected)
-    expect(agents.get).toHaveBeenCalledWith(childId)
-    expect(agents.get).not.toHaveBeenCalledWith(sourceId)
+    expect(ctx.sessionController.selectModel).toHaveBeenCalledWith({ sessionId: childId, ...selected })
+    expect(append).not.toHaveBeenCalled()
+    expect(child.ctx.on).not.toHaveBeenCalled()
+    expect(agents.get).not.toHaveBeenCalled()
+    expect(agents.resume).not.toHaveBeenCalled()
     expect(ctx.sessionQuery.observeSession).toHaveBeenCalledWith(childId, expect.objectContaining({ projectionMode: 'none' }))
     expect(dispose).not.toHaveBeenCalled()
   })
 
-  it('resumes and mounts only a cold child before changing its settings', async () => {
+  it('resumes and mounts only a cold child before changing its permission', async () => {
     const { settings, agents, child, dispose, agentPresets } = fixture({ live: false })
-    await settings.configure(modelRequest, new AbortController().signal)
+    await settings.configure({ parentSessionId: sourceId, childSessionId: childId,
+      kind: 'permission', preset: 'read-only' }, new AbortController().signal)
     expect(agents.resume).toHaveBeenCalledWith(expect.objectContaining({ resumeSessionId: childId }))
     expect(agentPresets.mount).toHaveBeenCalledWith(child.ctx, 'minimal')
     expect(dispose).toHaveBeenCalledOnce()
@@ -129,6 +132,7 @@ describe('side-chat settings and cold context', () => {
     })
     await expect(settings.configure(modelRequest, new AbortController().signal)).rejects.toThrow('not owned')
     expect(append).not.toHaveBeenCalled()
+    expect(ctx.sessionController.selectModel).not.toHaveBeenCalled()
   })
 
   it('refreshes bounded source context on attach and persists the exact model-visible text first', async () => {
