@@ -42,11 +42,12 @@ export function inheritedContextText(events: readonly EventLike[]): string | und
     if (event.type !== 'user/message' && event.type !== 'assistant/message') continue
     const data = (event.data ?? {}) as {
       readonly content?: unknown
+      readonly message?: { readonly content?: unknown }
       readonly source?: { readonly kind?: unknown }
     }
     // Only human input and the model's replies belong in inherited background.
     if (event.type === 'user/message' && data.source?.kind !== 'user') continue
-    const text = textOf(data.content).trim()
+    const text = textOf(event.type === 'assistant/message' ? data.message?.content : data.content).trim()
     if (text === '') continue
     messages.push(`${event.type === 'user/message' ? 'User' : 'Assistant'}:\n${text}`)
   }

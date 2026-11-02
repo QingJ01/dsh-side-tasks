@@ -23,6 +23,23 @@ describe('native side chat preparation', () => {
     expect(screen.getByText(en['empty.description'])).toBeTruthy()
   })
 
+  it.each(['user/message', 'assistant/message', 'assistant/live-chunk'])(
+    'recognizes a paginated child %s without its turn/start', (type) => {
+      const window = { entries: [{ type: type === 'assistant/live-chunk' ? 'transient' : 'event',
+        event: { type, seq: 501, data: { source: { kind: 'user' } } } }], hasMore: true } as never
+      expect(hasOwnSideChatTurn(window, -1)).toBe(true)
+      expect(hasOwnSideChatTurn(window, 501)).toBe(false)
+    },
+  )
+
+  it('does not mistake metadata or injected context for a first child exchange', () => {
+    const window = { entries: [
+      { type: 'event', event: { type: 'subagent/descriptor', seq: 0 } },
+      { type: 'event', event: { type: 'user/message', seq: 1, data: { source: { kind: 'context' } } } },
+    ], hasMore: false } as never
+    expect(hasOwnSideChatTurn(window, -1)).toBe(false)
+  })
+
   it('blocks child or archived parents before creating anything', () => {
     const create = vi.fn()
     render(<SideChatStartPage parentSessionId={'parent' as SessionId}

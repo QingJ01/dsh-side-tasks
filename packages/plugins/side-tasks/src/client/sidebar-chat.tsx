@@ -138,7 +138,12 @@ export function SideChatEmptyState({ t }: Pick<PropsLocale<typeof NS>, 't'>) {
 export function hasOwnSideChatTurn(window: SessionEventWindow, contextThrough: number | undefined): boolean {
   // Older resource addresses have no boundary and retain their normal view.
   if (contextThrough === undefined) return true
-  return window.entries.some(entry => entry.event.seq > contextThrough && entry.event.type === 'turn/start')
+  return window.entries.some(({ event }) => event.seq > contextThrough && (
+    event.type === 'turn/start'
+    || event.type === 'assistant/message'
+    || event.type === 'assistant/live-chunk'
+    || (event.type === 'user/message' && event.data.source.kind === 'user')
+  ))
 }
 
 function EmptyChatView() { return <div style={{ flex: '1 0 auto' }} /> }

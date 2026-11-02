@@ -117,31 +117,52 @@ describe('child-only native composer settings', () => {
     expect(child.options).toMatchObject({ provider: 'test', model: 'old' })
   })
 
-  it('registers inherited background as prompt context for an owned child', async () => {
-    const { settings, ctx, child, events } = (() => {
-      const f = fixture()
-      const withTurns = [
-        { type: 'subagent/descriptor', data: { version: 3, mode: 'continuable', provider: 'side-task' } },
-        { type: 'turn/start', seq: 0, data: {} },
-        { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: '暗号是 ORCA-77' }] } },
-        { type: 'assistant/message', data: { content: [{ type: 'text', text: '收到' }] } },
-        { type: 'turn/end', data: {} },
-      ]
-      f.ctx.agents.get = (id: string) => id === parentId
-        ? { id: parentId, session: { snapshotEvents: () => withTurns, append: vi.fn() } }
-        : f.child
-      return { ...f, events: withTurns }
-    })()
-    const context = vi.fn(() => vi.fn())
-    const withPrompt = { ...child, ctx: { on: vi.fn(() => vi.fn()), get: (name: string) => name === 'systemPrompt'
-      ? { getContextOrder: () => 120, context } : undefined } }
-    ctx.agents.get = (id: string) => id === parentId
-      ? { id: parentId, session: { snapshotEvents: () => events, append: vi.fn() } }
-      : withPrompt
-    ;(settings as never as { attach(agent: unknown): Promise<undefined> | undefined }).attach(withPrompt)
-    await vi.waitFor(() => { expect(context).toHaveBeenCalledOnce() })
-    expect(context.mock.calls[0]![0]).toMatchObject({ name: 'side-task:parent-context' })
-    expect((context.mock.calls[0]![0] as { text: () => string }).text()).toContain('ORCA-77')
+  it.each([true, false])('injects completed parent replies and refreshes only on cold resume (live parent: %s)', async (liveParent) => {
+    const { ctx, child, parent } = fixture()
+    const parentEvents = [
+      { type: 'turn/start', data: {} },
+      { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: '暗号是 ORCA-77' }] } },
+      { type: 'assistant/message', data: { turn: 0, step: 0, stream: [], message: {
+        id: 'reply-0', role: 'assistant', source: { kind: 'model', provider: 'test', model: 'old' },
+        content: [{ type: 'text', text: 'PARENT_REPLY_7241' }],
+      } } },
+      { type: 'turn/end', data: {} },
+      { type: 'turn/start', data: {} },
+      { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'NEXT_PARENT' }] } },
+    ]
+    const context = vi.fn((_contribution: { name: string; order: number; text: () => string }) => vi.fn())
+    const makeChild = () => ({ ...child, ctx: { on: vi.fn(() => vi.fn()), get: (name: string) => name === 'systemPrompt'
+      ? { getContextOrder: () => 120, context } : undefined } })
+    const observedDispose = vi.fn()
+    const query = { observeSession: vi.fn(async () => ({ events: parentEvents, [Symbol.dispose]: observedDispose })) }
+    const originalGet = ctx.get
+    ctx.get = name => name === 'sessionQuery' ? query as never : originalGet(name)
+    ctx.agents.get = (id: string) => id === parentId && liveParent
+      ? { ...parent, session: { ...parent.session, snapshotEvents: () => parentEvents } }
+      : undefined
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as (event: { agent: unknown }) => Promise<void>
+    const disposed = ctx.on.mock.calls.find(([name]) => name === 'agent/disposed')![1] as (event: { agent: unknown }) => void
+    const first = makeChild()
+    await created({ agent: first })
+    expect(context).toHaveBeenCalledOnce()
+    const initial = context.mock.calls[0]![0]
+    expect(initial).toMatchObject({ name: 'side-task:parent-context', order: 121 })
+    expect(initial.text()).toContain('User:\n暗号是 ORCA-77')
+    expect(initial.text()).toContain('Assistant:\nPARENT_REPLY_7241')
+    expect(initial.text()).not.toContain('NEXT_PARENT')
+
+    parentEvents.push({ type: 'turn/end', data: {} })
+    expect(initial.text()).not.toContain('NEXT_PARENT')
+    disposed({ agent: first })
+    expect(context.mock.results[0]!.value).toHaveBeenCalledOnce()
+    await created({ agent: makeChild() })
+    expect(context).toHaveBeenCalledTimes(2)
+    expect(context.mock.calls[1]![0].text()).toContain('NEXT_PARENT')
+    expect(context.mock.calls[1]![0].text()).toContain('Assistant:\nPARENT_REPLY_7241')
+    expect(child.session.append).not.toHaveBeenCalled()
+    expect(parent.session.append).not.toHaveBeenCalled()
+    expect(query.observeSession).toHaveBeenCalledTimes(liveParent ? 0 : 2)
+    expect(observedDispose).toHaveBeenCalledTimes(liveParent ? 0 : 2)
   })
 
   it('restores the durable user model on a later manager-created Agent', () => {

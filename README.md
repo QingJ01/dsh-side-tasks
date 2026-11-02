@@ -60,6 +60,8 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 
 The inherited background is the parent's latest completed-turn conversation: user input and assistant replies, excluding an in-flight turn and non-human context injections. It is read again when a child is cold-resumed, so a resumed side chat inherits the parent's progress up to that moment. No parent turn is copied into the child's transcript, so the child's messages and token usage stay its own.
 
+This is a bounded text snapshot, not a clone of the parent's complete model input: it keeps at most the latest 120 non-empty human/assistant messages and then the last 100,000 characters. Images, tool results, and compaction summaries are not included. It reads the original conversation log rather than the compacted model-visible surface, so replaced historical messages can still appear. While the same child Agent remains live, later parent messages are not continuously synchronized; each cold resume takes a new snapshot, including the first send after an idle side chat was prepared.
+
 ## Development
 
 ```sh
