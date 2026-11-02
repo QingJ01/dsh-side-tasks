@@ -17,12 +17,13 @@ vi.mock('@deepseek-ai/dsh-session', async (importOriginal) => {
 const sourceId = 'source' as SessionId
 const childId = 'child' as SessionId
 
-async function serviceFixture(supportsSideChatSessions = true) {
+async function serviceFixture(supportsSideChatSessions = true, forkSource = false) {
   const sourceEvents = [
     { type: 'turn/start', data: {} },
     { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'source prompt' }] } },
     { type: 'assistant/message', data: { message: { content: [{ type: 'text', text: 'source reply' }] } } },
     { type: 'turn/end', data: {} },
+    { type: 'model/selection', data: { provider: 'test', model: 'child-model', reasoningEffort: 'high' } },
     { type: 'permission/preset', data: { preset: 'workspace-write' } },
     { type: 'sandbox/mode', data: { mode: 'workspace-write' } },
     { type: 'approval/policy', data: { policy: 'never' } },
@@ -42,9 +43,9 @@ async function serviceFixture(supportsSideChatSessions = true) {
     expect(id).toBe(sourceId)
     expect(options.projectionMode).toBe('all')
     return {
-      header: { cwd: '/source', agentPreset: 'minimal' },
+      header: { cwd: '/source', agentPreset: 'minimal', ...(forkSource ? { parentSession: 'older-session' as SessionId } : {}) },
       events: sourceEvents,
-      inheritedEventCount: 0,
+      inheritedEventCount: forkSource ? 6 : 0,
       projections: { values: {
         modelSelection: { next: { provider: 'test', model: 'child-model', reasoningEffort: ReasoningEffortId('high') } },
         workingDirectory: '/project', agentPreset: 'effective',
@@ -54,13 +55,15 @@ async function serviceFixture(supportsSideChatSessions = true) {
   })
   const prompt = vi.fn(async () => ({ accepted: true }))
   const ctx = new Context()
-  ctx.provide('agents', { list: () => [], create } as never)
+  const get = vi.fn()
+  const resume = vi.fn()
+  ctx.provide('agents', { list: () => [], create, get, resume } as never)
   ctx.provide('workspaceRegistry', { archivedSessionIds: [], archiveSession } as never)
   ctx.provide('sessionQuery', { observeSession } as never)
   ctx.provide('sessionController', { supportsSideChatSessions, prompt } as never)
   ctx.provide('permissionPresets', {
     defaultPreset: 'safe',
-    resolve: vi.fn(() => ({ sandbox: 'workspace-write', approval: 'never' })),
+    resolve: vi.fn(() => ({ sandbox: 'read-only', approval: 'ask' })),
   } as never)
   ctx.provide('agentPresets', {
     resolve: vi.fn(async (id?: string) => ({ id: id ?? 'minimal' })),
@@ -68,7 +71,7 @@ async function serviceFixture(supportsSideChatSessions = true) {
   } as never)
   await ctx.plugin(SideTaskService)
   return {
-    service: ctx.sideTasks, ctx, create, childEvents, dispose, archiveSession, observeSession, prompt,
+    service: ctx.sideTasks, ctx, create, childEvents, dispose, archiveSession, observeSession, prompt, get, resume,
     close: () => ctx.fiber.dispose(),
   }
 }
@@ -108,6 +111,31 @@ describe('side-task Host service', () => {
     expect(observeSession).not.toHaveBeenCalled()
     expect(create).not.toHaveBeenCalled()
     expect(service.capabilities()).toEqual({ supportsSideChatSessions: false })
+    await close()
+  })
+
+  it('accepts an ordinary fork and snapshots inherited settings without activating its source', async () => {
+    const { service, create, childEvents, get, resume, close } = await serviceFixture(true, true)
+    const result = await service.create(sourceId, { prompt: '' }, new AbortController().signal)
+
+    expect(create).toHaveBeenCalledOnce()
+    expect(create.mock.calls[0]![0].meta).toEqual({
+      cwd: '/project', origin: 'sidechat', agentPreset: 'effective',
+    })
+    expect(create.mock.calls[0]![0].meta).not.toHaveProperty('parentSession')
+    expect(create.mock.calls[0]![0]).not.toHaveProperty('parentAgent')
+    expect(childEvents).toContainEqual({ type: 'model/selection', ignorable: true,
+      data: { provider: 'test', model: 'child-model', reasoningEffort: 'high' } })
+    expect(childEvents).toContainEqual({ type: 'permission/preset', ignorable: true,
+      data: { preset: 'workspace-write' } })
+    const context = childEvents.find(item => (item as { type: string }).type === 'plugin:side-tasks/context') as {
+      data: { text: string }
+    }
+    expect(context.data.text).toContain('source prompt')
+    expect(context.data.text).toContain('source reply')
+    expect(get).not.toHaveBeenCalled()
+    expect(resume).not.toHaveBeenCalled()
+    expect(result.childSessionId).toBeTruthy()
     await close()
   })
 

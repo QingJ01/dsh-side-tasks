@@ -39,8 +39,46 @@ index 870fa1c9..b5eee727 100644
  [事件映射](event-producer-consumer.zh.md)列出每个事件的生产方与消费方。
 
  <a id="turn-flow"></a>
+diff --git a/docs/event-producer-consumer.md b/docs/event-producer-consumer.md
+index 4aebd227..9e771996 100644
+--- a/docs/event-producer-consumer.md
++++ b/docs/event-producer-consumer.md
+@@ -62,10 +62,10 @@ This matrix shows which packages dispatch each harness-owned event and which pac
+ | `plugin-market/changed` | `emit` | [`packages/boot/plugin-market/src/types.ts:136`](../packages/boot/plugin-market/src/types.ts) | [`plugin-market`](../packages/boot/plugin-market) (`emit`) | `remotes` |
+ | `schedule/changed` | `emit` | [`packages/schedule/schedule/src/types.ts:478`](../packages/schedule/schedule/src/types.ts) | [`schedule`](../packages/schedule/schedule) (`emit`) | `remotes` |
+ | `session-telemetry/record` | `waterfall` | [`packages/session/session-telemetry/src/index.ts:44`](../packages/session/session-telemetry/src/index.ts) | [`session-telemetry`](../packages/session/session-telemetry) (`waterfall`) | - |
+-| `session/created` | `emit` | [`packages/core/session/src/index.ts:54`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`permission-presets`](../packages/interaction/permission-presets), [`schedule`](../packages/schedule/schedule), `server`, `session-controller`, [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry) |
+-| `session/disposed` | `emit` | [`packages/core/session/src/index.ts:63`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`agent-loop`](../packages/core/agent-loop), `agent-team`, `file-upload`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title), [`workspace-changes`](../packages/deliverables/workspace-changes) |
+-| `session/event` | `emit` | [`packages/core/session/src/index.ts:74`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`agent-instructions`](../packages/context/agent-instructions), [`agent-loop`](../packages/core/agent-loop), [`agent-preset-registry`](../packages/preset/agent-preset-registry), `agent-team`, `claude-code-mods`, [`compaction-basic`](../packages/compaction/compaction-basic), [`file-reference-local`](../packages/context/file-reference-local), `file-upload`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`headless`](../packages/bundle/headless), [`loader-smoke`](../packages/test-support/loader-smoke), `product-analytics`, [`ptc-runtime-node`](../packages/ptc-runtime/ptc-runtime-node), `server`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-telemetry-otel`](../packages/session/session-telemetry-otel), [`session-title`](../packages/session/session-title), [`subagent`](../packages/subagent/subagent), [`token-meter`](../packages/llm/token-meter), [`tools`](../packages/core/tools), [`user-questions`](../packages/interaction/user-questions), [`workspace-changes`](../packages/deliverables/workspace-changes) |
+-| `session/flush` | `parallel` | [`packages/core/session/src/index.ts:82`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-telemetry`](../packages/session/session-telemetry) |
++| `session/created` | `emit` | [`packages/core/session/src/index.ts:56`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`permission-presets`](../packages/interaction/permission-presets), [`schedule`](../packages/schedule/schedule), `server`, `session-controller`, [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry) |
++| `session/disposed` | `emit` | [`packages/core/session/src/index.ts:65`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`agent-loop`](../packages/core/agent-loop), `agent-team`, `file-upload`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title), [`workspace-changes`](../packages/deliverables/workspace-changes) |
++| `session/event` | `emit` | [`packages/core/session/src/index.ts:76`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`agent-instructions`](../packages/context/agent-instructions), [`agent-loop`](../packages/core/agent-loop), [`agent-preset-registry`](../packages/preset/agent-preset-registry), `agent-team`, `claude-code-mods`, [`compaction-basic`](../packages/compaction/compaction-basic), [`file-reference-local`](../packages/context/file-reference-local), `file-upload`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`headless`](../packages/bundle/headless), [`loader-smoke`](../packages/test-support/loader-smoke), `product-analytics`, [`ptc-runtime-node`](../packages/ptc-runtime/ptc-runtime-node), `server`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-telemetry-otel`](../packages/session/session-telemetry-otel), [`session-title`](../packages/session/session-title), [`subagent`](../packages/subagent/subagent), [`token-meter`](../packages/llm/token-meter), [`tools`](../packages/core/tools), [`user-questions`](../packages/interaction/user-questions), [`workspace-changes`](../packages/deliverables/workspace-changes) |
++| `session/flush` | `parallel` | [`packages/core/session/src/index.ts:84`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-telemetry`](../packages/session/session-telemetry) |
+ | `settings/document-updated` | `emit` | [`packages/settings/settings/src/types.ts:75`](../packages/settings/settings/src/types.ts) | [`settings`](../packages/settings/settings) (`emit`) | `remotes` |
+ | `skills/change` | `emit` | [`packages/skill/skill/src/index.ts:296`](../packages/skill/skill/src/index.ts) | [`skill`](../packages/skill/skill) (`events.dispatch`) | - |
+ | `subagent/end` | `emit` | [`packages/subagent/subagent/src/index.ts:166`](../packages/subagent/subagent/src/index.ts) | [`subagent`](../packages/subagent/subagent) (`events.dispatch`) | [`hooks-claude-code`](../packages/experimental/hooks-claude-code), `server` |
+diff --git a/docs/event-producer-consumer.zh.md b/docs/event-producer-consumer.zh.md
+index 901dfca3..3a8b999d 100644
+--- a/docs/event-producer-consumer.zh.md
++++ b/docs/event-producer-consumer.zh.md
+@@ -64,10 +64,10 @@
+ | `plugin-market/changed` | `emit` | [`packages/boot/plugin-market/src/types.ts:136`](../packages/boot/plugin-market/src/types.ts) | [`plugin-market`](../packages/boot/plugin-market) (`emit`) | `remotes` |
+ | `schedule/changed` | `emit` | [`packages/schedule/schedule/src/types.ts:478`](../packages/schedule/schedule/src/types.ts) | [`schedule`](../packages/schedule/schedule) (`emit`) | `remotes` |
+ | `session-telemetry/record` | `waterfall` | [`packages/session/session-telemetry/src/index.ts:44`](../packages/session/session-telemetry/src/index.ts) | [`session-telemetry`](../packages/session/session-telemetry) (`waterfall`) | - |
+-| `session/created` | `emit` | [`packages/core/session/src/index.ts:54`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`permission-presets`](../packages/interaction/permission-presets), [`schedule`](../packages/schedule/schedule), `server`, `session-controller`, [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry) |
+-| `session/disposed` | `emit` | [`packages/core/session/src/index.ts:63`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`agent-loop`](../packages/core/agent-loop), `agent-team`, `file-upload`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title), [`workspace-changes`](../packages/deliverables/workspace-changes) |
+-| `session/event` | `emit` | [`packages/core/session/src/index.ts:74`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`agent-instructions`](../packages/context/agent-instructions), [`agent-loop`](../packages/core/agent-loop), [`agent-preset-registry`](../packages/preset/agent-preset-registry), `agent-team`, `claude-code-mods`, [`compaction-basic`](../packages/compaction/compaction-basic), [`file-reference-local`](../packages/context/file-reference-local), `file-upload`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`headless`](../packages/bundle/headless), [`loader-smoke`](../packages/test-support/loader-smoke), `product-analytics`, [`ptc-runtime-node`](../packages/ptc-runtime/ptc-runtime-node), `server`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-telemetry-otel`](../packages/session/session-telemetry-otel), [`session-title`](../packages/session/session-title), [`subagent`](../packages/subagent/subagent), [`token-meter`](../packages/llm/token-meter), [`tools`](../packages/core/tools), [`user-questions`](../packages/interaction/user-questions), [`workspace-changes`](../packages/deliverables/workspace-changes) |
+-| `session/flush` | `parallel` | [`packages/core/session/src/index.ts:82`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-telemetry`](../packages/session/session-telemetry) |
++| `session/created` | `emit` | [`packages/core/session/src/index.ts:56`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`permission-presets`](../packages/interaction/permission-presets), [`schedule`](../packages/schedule/schedule), `server`, `session-controller`, [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry) |
++| `session/disposed` | `emit` | [`packages/core/session/src/index.ts:65`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`agent-loop`](../packages/core/agent-loop), `agent-team`, `file-upload`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title), [`workspace-changes`](../packages/deliverables/workspace-changes) |
++| `session/event` | `emit` | [`packages/core/session/src/index.ts:76`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`agent-instructions`](../packages/context/agent-instructions), [`agent-loop`](../packages/core/agent-loop), [`agent-preset-registry`](../packages/preset/agent-preset-registry), `agent-team`, `claude-code-mods`, [`compaction-basic`](../packages/compaction/compaction-basic), [`file-reference-local`](../packages/context/file-reference-local), `file-upload`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`headless`](../packages/bundle/headless), [`loader-smoke`](../packages/test-support/loader-smoke), `product-analytics`, [`ptc-runtime-node`](../packages/ptc-runtime/ptc-runtime-node), `server`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-telemetry-otel`](../packages/session/session-telemetry-otel), [`session-title`](../packages/session/session-title), [`subagent`](../packages/subagent/subagent), [`token-meter`](../packages/llm/token-meter), [`tools`](../packages/core/tools), [`user-questions`](../packages/interaction/user-questions), [`workspace-changes`](../packages/deliverables/workspace-changes) |
++| `session/flush` | `parallel` | [`packages/core/session/src/index.ts:84`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-telemetry`](../packages/session/session-telemetry) |
+ | `settings/document-updated` | `emit` | [`packages/settings/settings/src/types.ts:75`](../packages/settings/settings/src/types.ts) | [`settings`](../packages/settings/settings) (`emit`) | `remotes` |
+ | `skills/change` | `emit` | [`packages/skill/skill/src/index.ts:296`](../packages/skill/skill/src/index.ts) | [`skill`](../packages/skill/skill) (`events.dispatch`) | - |
+ | `subagent/end` | `emit` | [`packages/subagent/subagent/src/index.ts:166`](../packages/subagent/subagent/src/index.ts) | [`subagent`](../packages/subagent/subagent) (`events.dispatch`) | [`hooks-claude-code`](../packages/experimental/hooks-claude-code), `server` |
 diff --git a/docs/persistence-catalog.i18n.yaml b/docs/persistence-catalog.i18n.yaml
-index 5b57d28f..35dee2f2 100644
+index 5b57d28f..e85068b0 100644
 --- a/docs/persistence-catalog.i18n.yaml
 +++ b/docs/persistence-catalog.i18n.yaml
 @@ -9,11 +9,11 @@
@@ -54,8 +92,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/event-envelope:
 -  en: 689f781d95689e20
 -  zh: 602f6a7f0835d698
-+  en: 47c5938417239191
-+  zh: be44fc1765f82160
++  en: 534866c6916c3fca
++  zh: 75bdeae58a3ddc20
  /session-persistence-event-catalog/events:
    en: f4776ba3d0fd53ce
    zh: e86769f50a69055a
@@ -65,13 +103,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/assistant/assistant-attempt-log-only:
 -  en: 5b002a8dcefbfc71
 -  zh: e44f53ed4bf1f929
-+  en: f58a0aae8b1e95b7
-+  zh: 2611df6281fbd76d
++  en: d5bb28e89c4ade31
++  zh: 89e520bc5cdcb1e7
  /session-persistence-event-catalog/events/assistant/assistant-message-surface:
 -  en: a0f8289f97125e4f
 -  zh: 1ff54770086eb016
-+  en: 400d6380bbe51890
-+  zh: fac575e7d915a6b8
++  en: 386dfc397abbc397
++  zh: 5da0c1921b80d753
  /session-persistence-event-catalog/events/command:
    en: 2cecb5b0ee955732
    zh: 2cecb5b0ee955732
@@ -81,8 +119,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/developer/developer-message-surface:
 -  en: cd036bde54c62690
 -  zh: 5a21179b33551ed5
-+  en: fd716cfc669a05a0
-+  zh: 8693a334958ab3cf
++  en: 8721299b0e4b99eb
++  zh: d95aa39c2da781e9
  /session-persistence-event-catalog/events/feedback:
    en: f50dbac6867fa64d
    zh: f50dbac6867fa64d
@@ -92,13 +130,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/request/request-context-log-only:
 -  en: 799784e7cd019889
 -  zh: db6c59d673b4acff
-+  en: 12f248ce0ab5ffd7
-+  zh: 6a6f3e08ff9a3492
++  en: 338d89f911e73657
++  zh: 3a3248a5f5186222
  /session-persistence-event-catalog/events/request/request-header-log-only:
 -  en: fb095eddad22b5f5
 -  zh: 49f1a3ac0a9ec57c
-+  en: 4430f7050416e85d
-+  zh: 611182dde4a04a7e
++  en: a9e0243440ceff1c
++  zh: a7a822c4593773ed
  /session-persistence-event-catalog/events/sandbox:
    en: ec841ab8439335b0
    zh: ec841ab8439335b0
@@ -108,8 +146,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/session/session-end-seed-log-only:
 -  en: 70c3c0d6614f2d30
 -  zh: bb4dd52f5bcf351c
-+  en: 515d278b19057dcd
-+  zh: e3b71e4ab8be9c9e
++  en: 0bf42de8776a1521
++  zh: 5176eb8530abae29
  /session-persistence-event-catalog/events/session/session-title-log-only:
    en: 6c6a27578dff5828
    zh: 9a5add2bc0df2d0a
@@ -119,13 +157,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/step/step-end-log-only:
 -  en: 2de61d81867d485c
 -  zh: 21025a396ef7c88f
-+  en: b30d8571ba611386
-+  zh: 42e45b49142c306c
++  en: 4653e1756acd8ee6
++  zh: 9e3648898b32a832
  /session-persistence-event-catalog/events/step/step-start-log-only:
 -  en: cb8f05bf3b59adef
 -  zh: 686b33b689c4a841
-+  en: 161a661514649037
-+  zh: 5a2e3ec5af378746
++  en: 9bff9592d62a237f
++  zh: 61c2954ea38985cf
  /session-persistence-event-catalog/events/subagent:
    en: 9630752e97ddbfbc
    zh: 9630752e97ddbfbc
@@ -135,8 +173,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/system/system-message-surface:
 -  en: 92b1f61ac638da71
 -  zh: 2d60ba9d38abda05
-+  en: c7ee23c11b93a70e
-+  zh: c3b85af045afe387
++  en: 78a40d681313dbd4
++  zh: 45e38b05e0e7521f
  /session-persistence-event-catalog/events/team:
    en: a640800a38b3c874
    zh: a640800a38b3c874
@@ -146,8 +184,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/tool/tool-call-log-only:
 -  en: 03f36237cbf9e267
 -  zh: 83fe2e69bbbfd3c1
-+  en: 3780b5a2281ac7a4
-+  zh: 9dbb81d58bd4f6f3
++  en: d73a3ecfb593be69
++  zh: 17a26c407097fc6d
  /session-persistence-event-catalog/events/tool/tool-ptc-dispatch-log-only:
    en: 3d5d72b99e702a8c
    zh: e8c3b82cd5361c4a
@@ -157,8 +195,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/tool/tool-result-surface:
 -  en: 283e3cf1fdd57f05
 -  zh: 0bc3a15ae4f47aaf
-+  en: 9a85793d895ed3ea
-+  zh: 1e21eacda5f744b1
++  en: f75f51e576680a18
++  zh: 83ce9c72a3e81687
  /session-persistence-event-catalog/events/tool-workflow:
    en: 1eac7deac6af15f3
    zh: 1eac7deac6af15f3
@@ -168,21 +206,21 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/events/turn/turn-end-log-only:
 -  en: ce5ef6916c95ea16
 -  zh: 9652c8d40b5dfb6d
-+  en: 7d5bacee7392ed18
-+  zh: 65b8eb8ab9b10ccd
++  en: a209c3e01d0150c9
++  zh: 29aa7eb941bc01de
  /session-persistence-event-catalog/events/turn/turn-start-log-only:
 -  en: 999ffb7ad4e600aa
 -  zh: a8720bf8578431ae
-+  en: 1b5d3369f6178575
-+  zh: 34550bedca73336a
++  en: e362f5e2b3308c08
++  zh: bee58b6a6c3bd0c4
  /session-persistence-event-catalog/events/user:
    en: d864a88c03e8971c
    zh: d864a88c03e8971c
  /session-persistence-event-catalog/events/user/user-message-surface:
 -  en: 55128b5458eae10f
 -  zh: 4198ea89093484f6
-+  en: 836d2e0de5f33816
-+  zh: 67055e83e820f5f5
++  en: 5f90134acb09274c
++  zh: f85546293dc7a454
  /session-persistence-event-catalog/events/web:
    en: d278748103cf1640
    zh: d278748103cf1640
@@ -206,8 +244,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/commandsource:
 -  en: 53feeeb70547e7df
 -  zh: 99d9e901d9b4afe5
-+  en: 7beeaec7c570fd22
-+  zh: 3dce7d1b29608297
++  en: c8566c12c4b21a96
++  zh: dc424c0da34e2cdc
  /session-persistence-event-catalog/resolved-persistence-types/compactioncheckpointsource:
    en: 87f2aaf2b23a5249
    zh: 3d6c5ed6603bee31
@@ -217,8 +255,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/epochheader:
 -  en: 3786becd1ca9c697
 -  zh: ea8e6fd4f6590567
-+  en: 3bdc8ecd0bdf0c9c
-+  zh: 0fe5b75c174ebab4
++  en: 18e712e4354e422d
++  zh: 32f9ff8e7e47e9aa
  /session-persistence-event-catalog/resolved-persistence-types/everyscheduledispatchchange:
    en: 54c487394ce0db1d
    zh: 48d7c9affbe841cb
@@ -244,8 +282,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/optionalsessionseq:
 -  en: 6d4afd6c237b50fd
 -  zh: ec07f774c853f27b
-+  en: 32fc871c313ae5b9
-+  zh: ea9563761dbf231a
++  en: 43c2b873675c1e99
++  zh: fcf0b2e07344cd57
  /session-persistence-event-catalog/resolved-persistence-types/presentedfile:
    en: 3e36e2f29ff1b506
    zh: 3dcc1a1dced59d9f
@@ -255,13 +293,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/requestcontext:
 -  en: b1ade5ed2c42b1ad
 -  zh: f1a6126bec25657b
-+  en: 544039047a28b6bb
-+  zh: c691f0bb1e23db08
++  en: bc21303a61b0f01c
++  zh: a1e00479a01bf552
  /session-persistence-event-catalog/resolved-persistence-types/requestheaderreason:
 -  en: 0db3aa2b122a4454
 -  zh: 15b6cfd8896935b8
-+  en: 1f691c223f54ab2c
-+  zh: f88fef3ee9745c91
++  en: 1e973403c7874cf6
++  zh: a9b19088a1914846
  /session-persistence-event-catalog/resolved-persistence-types/sandboxmode:
    en: c9fa5343ea99733b
    zh: d6de41351c57a73f
@@ -276,8 +314,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/sessionheader:
 -  en: 0536dab0d2eed6ad
 -  zh: 54396338c9917818
-+  en: 82363853d239d3d1
-+  zh: 6a67ad9fce48e80f
++  en: 061289d7d6c4f82d
++  zh: ee72c6fa35f6565a
  /session-persistence-event-catalog/resolved-persistence-types/sessionreferencesource:
    en: 9a54c4478ad3b620
    zh: 02c4c1fd7e252770
@@ -287,8 +325,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/surfaceop:
 -  en: 95f8ef2fb8a7c154
 -  zh: 04cdad161fb88cc3
-+  en: db344ab72b1fc3a2
-+  zh: ae2170ac5002b210
++  en: c11d8b2b50526799
++  zh: faf34df622a5cc26
  /session-persistence-event-catalog/resolved-persistence-types/systemmessage:
    en: 94876079d6696df9
    zh: d25c7ad9f5054eb7
@@ -298,13 +336,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/turnendcancelcause:
 -  en: 4dc89c072fe5d0d1
 -  zh: 4ed2c9e9e8b4f7e2
-+  en: 7fe2f5fdef25f876
-+  zh: 2a2b5b3044fe83a7
++  en: c2950dbffc0b7c7c
++  zh: b14efe4bb8bc1e37
  /session-persistence-event-catalog/resolved-persistence-types/turnendreason:
 -  en: eec92deb07c000fa
 -  zh: 666682b6f3efcfa3
-+  en: 49acc58e31b84e23
-+  zh: acafb8d4a1ab59cf
++  en: c19d08528223b1e4
++  zh: ba480641afe79b36
  /session-persistence-event-catalog/resolved-persistence-types/usermessage:
    en: bd3aedd570ded4d2
    zh: f020d0816d3a6c1a
@@ -314,8 +352,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/number:
 -  en: 0223d7ffb67ac272
 -  zh: c2a8221caab6d350
-+  en: fd438c23c9341460
-+  zh: c7e8ad2bdea162e9
++  en: b523fc489e4f77df
++  zh: 181f08524606db33
  /session-persistence-event-catalog/resolved-persistence-types/number~2:
    en: 2786fef560851bb4
    zh: 5d787475356b2606
@@ -339,8 +377,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/arguments-callid-name-step:
 -  en: 99e67b046fa9cf40
 -  zh: 88060ee577d02d20
-+  en: ad0625287134da35
-+  zh: c1a13561ca3df15d
++  en: e1a214636f575420
++  zh: f9dcaf765f078672
  /session-persistence-event-catalog/resolved-persistence-types/callid-files-turn:
    en: 5f4d3f66ed86a14d
    zh: 7c729360fa1279e6
@@ -350,8 +388,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/code-name-reason:
 -  en: 404a76066a59f3c6
 -  zh: ec9d510bdbac9786
-+  en: 744a5684bc66f76f
-+  zh: 5294304d2d07999e
++  en: e0890097c0ae4957
++  zh: 340f89d993d7a495
  /session-persistence-event-catalog/resolved-persistence-types/commandid-kind-sourceeventseq-text:
    en: 87b03e1c73d2a326
    zh: d7b9f06863cad891
@@ -361,18 +399,18 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/endseq-op-startseq:
 -  en: 318404925fed44c8
 -  zh: 6cc8b0fcd8d11540
-+  en: 3d86f179fcd4acac
-+  zh: 7f03e8f23428c00c
++  en: 0c95e94b801c4c26
++  zh: 7399f10a656803f8
  /session-persistence-event-catalog/resolved-persistence-types/error-kind-error:
 -  en: 72572b3d4f2f0c01
 -  zh: 4c4234325c1713fc
-+  en: e0833e1b1cdb29d0
-+  zh: 6244880c79509016
++  en: 688220994a6e0e50
++  zh: 669167ea91130da4
  /session-persistence-event-catalog/resolved-persistence-types/error-message-meta-step:
 -  en: 8cc3e4d05fa25012
 -  zh: 2c2d1c1936dd99ce
-+  en: 80ac7eb83505f1af
-+  zh: a9d601dba50a0d6f
++  en: b982b76e4d0bb8e3
++  zh: 86ef1baffceffd16
  /session-persistence-event-catalog/resolved-persistence-types/failure-kind-aborted:
    en: 349cd90f2598fd12
    zh: 1eda02d520ad5d76
@@ -382,13 +420,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/header-reason-startsseries:
 -  en: fe0f6163c5202da6
 -  zh: 98feea5f03b725e1
-+  en: 5ebf44334f4fff70
-+  zh: 8a50221d01aaf75b
++  en: 7bd5b993de3e0591
++  zh: cfddce1c066861dc
  /session-persistence-event-catalog/resolved-persistence-types/headerseq-message-step-turn:
 -  en: 05903e55f510fd79
 -  zh: 90a17b10f682abcb
-+  en: 153868ea8988a410
-+  zh: 154667fb80cf185d
++  en: 949d6c1f36a72689
++  zh: 6742811505450698
  /session-persistence-event-catalog/resolved-persistence-types/height-width:
    en: a5df50710083ac25
    zh: aad3ccf6f6de70e4
@@ -398,39 +436,39 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/inherited:
 -  en: 8a9199b1784c70f5
 -  zh: 76c98bc74686fda0
-+  en: 9f0f31f29cfdab1d
-+  zh: 602dbe4153a8a5d7
++  en: 78d5ed80308492e4
++  zh: 4f1263764dd4842c
  /session-persistence-event-catalog/resolved-persistence-types/inserted-outcome-removedcount-start:
    en: e77d5d524dd8b4ea
    zh: 4dac28dda78a510f
  /session-persistence-event-catalog/resolved-persistence-types/interrupted-message-step-stream:
 -  en: ec10cd8e9c202a81
 -  zh: e08f859bcb13f0d4
-+  en: 4af355d740f6fd33
-+  zh: ccb0efe57e4a5819
++  en: 97e05240bd01deff
++  zh: 4b26c5956152676d
  /session-persistence-event-catalog/resolved-persistence-types/kind-aborted-reason:
 -  en: 48424cbed3fbc269
 -  zh: 2ce88c04ad002104
-+  en: e2bb1bbda59b70c8
-+  zh: f3bc6c2a5e9bfb61
++  en: 082290d3bdd81de6
++  zh: 8f02253cf841fa78
  /session-persistence-event-catalog/resolved-persistence-types/kind-blocked:
 -  en: 2fad818b19823c48
 -  zh: a6b33dee21c3fdc9
-+  en: facd11d2752be0bc
-+  zh: 5b4deb740e5d5db6
++  en: 42bc8cab93c7b0af
++  zh: 8f532df056de6304
  /session-persistence-event-catalog/resolved-persistence-types/kind-completed:
 -  en: e8f76b61a39ebeb0
 -  zh: e61a304be00b4490
-+  en: f3140216dd15a63e
-+  zh: d0065519c9fffd26
++  en: b2e6311629819f68
++  zh: 779ed89f6d525e48
  /session-persistence-event-catalog/resolved-persistence-types/kind-cordis-host-runner:
    en: fb7b8207a6ef3b81
    zh: 9d6f112181d90701
  /session-persistence-event-catalog/resolved-persistence-types/kind-disposed:
 -  en: e3c9527803bc6de3
 -  zh: 375c82ce2ac5282b
-+  en: 1d2078c1ba06edbc
-+  zh: 14abd5b217dc8ed7
++  en: 18e5c18ff3fc0c4d
++  zh: e98bf66e51320268
  /session-persistence-event-catalog/resolved-persistence-types/kind-dsh-session-title-llm:
    en: 428529e5dedc761d
    zh: 3ca0b54c9c521ea0
@@ -440,13 +478,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/kind-forked:
 -  en: dc750041126fe853
 -  zh: 736505cd1e57db62
-+  en: 4663f6c1a2634822
-+  zh: 3a2e4f61195759a0
++  en: 4bfaef77db6a0534
++  zh: 43222e364719ee93
  /session-persistence-event-catalog/resolved-persistence-types/kind-hook:
 -  en: 78278a869370695f
 -  zh: 6cdc47f1876f3b23
-+  en: 5e958bddf8642257
-+  zh: 4ab7499c2d1b161c
++  en: 0b22ef2eb2d91795
++  zh: 7bc19cd041a7d61d
  /session-persistence-event-catalog/resolved-persistence-types/kind-hooks-claude-code:
    en: 5eb383a67f11ac4d
    zh: 1943747cb4995dbc
@@ -456,18 +494,18 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/kind-interrupted:
 -  en: b2dea1e08facaa40
 -  zh: 71c9b8d4e3d1d2b8
-+  en: 8f5585c1e90d6ca3
-+  zh: 78329cf995882344
++  en: 50ae5a29d7681582
++  zh: 5184ee185bf369da
  /session-persistence-event-catalog/resolved-persistence-types/kind-legacy:
 -  en: c6f68741f8631d4f
 -  zh: 090b58f2b86c02d0
-+  en: 8104f67f2771b39f
-+  zh: 5b6a2a8b3be75d93
++  en: e67e6303095c3e12
++  zh: 109c3ee33cfd9244
  /session-persistence-event-catalog/resolved-persistence-types/kind-max-tokens:
 -  en: 4746f91df74cc1dd
 -  zh: d0427e9191359299
-+  en: 337ebe760096729a
-+  zh: bd35a401103a3071
++  en: ba687187e9766154
++  zh: f1650ddf5ff2eb25
  /session-persistence-event-catalog/resolved-persistence-types/kind-model-selection:
    en: a5165486dca91116
    zh: b7051ca8167806ef
@@ -477,8 +515,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/kind-parent:
 -  en: 7a3ac2238405913d
 -  zh: b249a4d6d0508d40
-+  en: da9908bc45c21859
-+  zh: 5a91de30d7654974
++  en: c8dfbd98220b8253
++  zh: 9b1cd5861cb80ec4
  /session-persistence-event-catalog/resolved-persistence-types/kind-plan-mode:
    en: 9758304800b717df
    zh: dccf14f3a5d0d861
@@ -488,8 +526,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/message-step-turn:
 -  en: dcaa676f106cfdfd
 -  zh: e3941fea97c943fb
-+  en: 21d431579049b2bf
-+  zh: d9d15b817ea0441c
++  en: d770df02f76ad0a6
++  zh: c983c5289c8efe29
  /session-persistence-event-catalog/resolved-persistence-types/message-teamid-version:
    en: f778769acb264dd5
    zh: eba9b81d04e9f57b
@@ -499,8 +537,8 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/reason-turn:
 -  en: a4ba4d0ee1396381
 -  zh: b6f595f8a696d512
-+  en: b8d80b4b1e6441ad
-+  zh: d5c52e1bfe560297
++  en: cb99cd378615a7d1
++  zh: a9bd93f11ac1bf4c
  /session-persistence-event-catalog/resolved-persistence-types/role-user:
    en: 04b34b8ffe7e7764
    zh: a792d5371516fd9d
@@ -510,13 +548,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/step-stream-turn:
 -  en: 84004f9b9c6bf24c
 -  zh: ce1abe27b0bc43e2
-+  en: 0d2477c39dadc01f
-+  zh: 00cfb9889c0b0dcd
++  en: 2d13a85441b0ff5b
++  zh: 495c58cbb9c76445
  /session-persistence-event-catalog/resolved-persistence-types/step-turn:
 -  en: 989fad01cdd866ba
 -  zh: 4f08dafda68f0c77
-+  en: 8f9e774f89087efa
-+  zh: 72474e7e556e2469
++  en: e463e06d5b3ab7a7
++  zh: 23edacedb7d9e97e
  /session-persistence-event-catalog/resolved-persistence-types/targets:
    en: 5360af614fe753e3
    zh: 96427c489cc71de6
@@ -526,13 +564,13 @@ index 5b57d28f..35dee2f2 100644
  /session-persistence-event-catalog/resolved-persistence-types/turn:
 -  en: c58b89cec274f956
 -  zh: 056a29ed1ada9690
-+  en: 374b8adee8d571fa
-+  zh: b21057efc58e6490
++  en: fa93ba472caf2150
++  zh: c1562a7510d48a41
  /session-persistence-event-catalog/resolved-persistence-types/type-agent-preset-selected:
    en: c8c731ee23bed85a
    zh: f4ffc80f7828701d
 diff --git a/docs/persistence-catalog.md b/docs/persistence-catalog.md
-index 5cd37161..020cf72b 100644
+index 5cd37161..ed9b4d08 100644
 --- a/docs/persistence-catalog.md
 +++ b/docs/persistence-catalog.md
 @@ -19,8 +19,8 @@ The [format references](persistence-changes/historical-formats/README.md) cover
@@ -551,7 +589,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Sources: [`packages/core/session/src/types.ts:432`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:440`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:463`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:494`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:437`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:445`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:499`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:435`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:443`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:466`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:497`](../packages/core/session/src/types.ts)
 
  ## Events
 
@@ -560,7 +598,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:361`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:359`](../packages/core/session/src/types.ts)
 
  <a id="assistantmessage--surface"></a>
 
@@ -569,7 +607,7 @@ index 5cd37161..020cf72b 100644
  Types: [TokenUsage](subsystems/llm-streaming.md)
 
 -Source: [`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:345`](../packages/core/session/src/types.ts)
 
  ### `command/*`
 
@@ -578,7 +616,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
 
  ### `feedback/*`
 
@@ -587,7 +625,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:403`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:408`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:406`](../packages/core/session/src/types.ts)
 
  <a id="requestheader--log-only"></a>
 
@@ -596,7 +634,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:391`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:394`](../packages/core/session/src/types.ts)
 
  ### `sandbox/*`
 
@@ -605,7 +643,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:428`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:431`](../packages/core/session/src/types.ts)
 
  <a id="sessiontitle--log-only"></a>
 
@@ -614,7 +652,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:302`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts)
 
  <a id="stepstart--log-only"></a>
 
@@ -623,7 +661,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:300`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
 
  ### `subagent/*`
 
@@ -632,7 +670,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:331`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:334`](../packages/core/session/src/types.ts)
 
  ### `team/*`
 
@@ -641,7 +679,7 @@ index 5cd37161..020cf72b 100644
  Types: [ToolCallId](subsystems/core.md)
 
 -Source: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:367`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:365`](../packages/core/session/src/types.ts)
 
  <a id="toolptc-dispatch--log-only"></a>
 
@@ -650,7 +688,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:381`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:379`](../packages/core/session/src/types.ts)
 
  ### `tool-workflow/*`
 
@@ -659,7 +697,7 @@ index 5cd37161..020cf72b 100644
  Types: [TurnEndReason](subsystems/session.md)
 
 -Source: [`packages/core/session/src/types.ts:298`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
 
  <a id="turnstart--log-only"></a>
 
@@ -668,7 +706,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:294`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:292`](../packages/core/session/src/types.ts)
 
  ### `user/*`
 
@@ -677,7 +715,7 @@ index 5cd37161..020cf72b 100644
  ```
 
 -Source: [`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:313`](../packages/core/session/src/types.ts)
 
  ### `web/*`
 
@@ -701,7 +739,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `ada310bf0bdb8fed51f3b56ea63f6ea6b18bbd587f04fccb63a14ab0b2a24e05`
 
 -Sources: [`packages/core/session/src/types.ts:191`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:196`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:194`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -710,7 +748,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `9a930283b91d493d6347146f2475bb107294b379415ca02162354f46a64164f7`
 
 -Sources: [`packages/core/session/src/types.ts:241`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:246`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:244`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -746,7 +784,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `3bd652ebfa8726b3ce3937a4f1bd2759e02f86b3a08a20f9e41a8513656fbc5f`
 
 -Sources: [`packages/core/session/src/types.ts:66`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:71`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:69`](../packages/core/session/src/types.ts)
 
  One of:
 
@@ -755,7 +793,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `b158f3ff6923714807c0d73882f0b05dc87f8fa85c9e90814852d48bbc866081`
 
 -Sources: [`packages/core/session/src/types.ts:255`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:260`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:258`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -764,7 +802,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `530da6c0267813bb4511af72883cc518834e624e3b3220a7062955fd57a788a6`
 
 -Sources: [`packages/core/session/src/types.ts:274`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:279`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:277`](../packages/core/session/src/types.ts)
 
  One of:
 
@@ -785,7 +823,7 @@ index 5cd37161..020cf72b 100644
 +SHA-256: `b83636858c092bb763f8bc7cd561aa8d99172ea880e454b4290f4b8a273ca948`
 
 -Sources: [`packages/core/session/src/types.ts:95`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:100`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:98`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -803,7 +841,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `335e242de1fcc17b6ca920fc420d71bec2d76e53e37955c00948b65ab77f05c5`
 
 -Sources: [`packages/core/session/src/types.ts:463`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:466`](../packages/core/session/src/types.ts)
 
  One of:
 
@@ -812,7 +850,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `1f8c126cfab3df812cd115cfc23e3256f0fa2383400f4ce91ecad313577e59b0`
 
 -Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:202`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:200`](../packages/core/session/src/types.ts)
 
  | kind | Form property | Other required fields | Full definition |
  |---|---|---|---|
@@ -821,7 +859,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `f1687f982fa3d41ef29e159feed154ecd13af4dd209acaee16038f223f2e9402`
 
 -Sources: [`packages/core/session/src/types.ts:233`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:238`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:236`](../packages/core/session/src/types.ts)
 
  | kind | Form property | Other required fields | Full definition |
  |---|---|---|---|
@@ -830,7 +868,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `0657d3ca5ac4e7bf79b00bcf860b1c7159d01a9da137497221ec2f1776e365f7`
 
 -Sources: [`packages/core/session/src/types.ts:33`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:38`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:36`](../packages/core/session/src/types.ts)
 
  `number`
 
@@ -857,7 +895,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `e4c18e294232c3ba6c9f1999f168263cc55956147cfe4121720899be8e52edd1`
 
 -Sources: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:367`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:365`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -866,7 +904,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `a81059ca06999da1e712414520c2c65e491d052fcf9640fae20aa38f0a5dc735`
 
 -Sources: [`packages/core/session/src/types.ts:384`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:389`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:387`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -875,7 +913,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825`
 
 -Sources: [`packages/core/session/src/types.ts:465`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -884,7 +922,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `79650cfa10aa3c52440328d85e8a25f0ffadc8d7efd784e3c0819d8bb74a1985`
 
 -Sources: [`packages/core/session/src/types.ts:213`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:218`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:216`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -893,7 +931,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `5302e763151277614b97e77f00e3b326694c6c1247b916a20503c344dc970777`
 
 -Sources: [`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:381`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:379`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -902,7 +940,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `ad0c38a0adb82a94c925456df41586d9b5f9202fca18593eae2213d4445b4585`
 
 -Sources: [`packages/core/session/src/types.ts:391`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:394`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -911,7 +949,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `f4ed4717b4c259e933b550a8dcd90dc93628cda8a3c7affcaa53b9c13c1d53eb`
 
 -Sources: [`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -920,7 +958,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `17d1afb770d9941936130996da00dc86782cfef731d8d6526162c301256a4ac3`
 
 -Sources: [`packages/core/session/src/types.ts:428`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:431`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -929,7 +967,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `1ccb56061942f5ccb0d30c9e4f2883b9d115ff906560029de637b61d3cde896d`
 
 -Sources: [`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:345`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -938,7 +976,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `0a30c3be336cdd4f8f34e66543a3d46d611c43986edd9b3ce6cbb9b721d3b5d3`
 
 -Sources: [`packages/core/session/src/types.ts:205`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:210`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:208`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -947,7 +985,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `023a355b2be0d688fb6e4df8388dadb942761d46cfe96d0f499aae9631a159d4`
 
 -Sources: [`packages/core/session/src/types.ts:207`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:212`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:210`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -956,7 +994,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `b6ef9c6210be8350cd465f485cf520031fffa6bf3809c61a1e713e834c5982d0`
 
 -Sources: [`packages/core/session/src/types.ts:203`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:208`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:206`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -965,7 +1003,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `4bb451330ff699f36b45539ceb0eb2606ead72084e2c5bb637c36cc80e2252db`
 
 -Sources: [`packages/core/session/src/types.ts:194`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:199`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -974,7 +1012,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `ec8b5ff7c77ca6893ac7ba5a0c5b2aefeb52f12c64450b7359660c2a7e8a53d7`
 
 -Sources: [`packages/core/session/src/types.ts:229`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:234`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:232`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -983,7 +1021,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `6c5a37d42ebdb12db4410699259335f1e149e3a0260425684c00b153afc8990d`
 
 -Sources: [`packages/core/session/src/types.ts:193`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:198`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:196`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -992,7 +1030,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `56b7c047694875a843ba020dfea3c8380d54ae4ff88ab349e72004dc21e07c23`
 
 -Sources: [`packages/core/session/src/types.ts:222`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:227`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:225`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -1001,7 +1039,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `eaa71be0fbf0f702df8ea6c11d0aa2f9782263d45a10d0fb14eda662f4bfe04c`
 
 -Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:202`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:200`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -1010,7 +1048,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `ab7ec5f9eb2c6dfacca5da4c37cf7ba85d04172053ee6b1ebf1709ffcd99c1a7`
 
 -Sources: [`packages/core/session/src/types.ts:215`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:220`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:218`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -1019,7 +1057,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `6c03546143cdf6ae88f1745ac98c5139efa1588d1415249bbc5f3104d32ab800`
 
 -Sources: [`packages/core/session/src/types.ts:192`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:195`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -1028,7 +1066,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `6bc8e51124d0874bc89e1d0ceff381a9c3cd0fc240667d69f841ce4f60f65fe5`
 
 -Sources: [`packages/core/session/src/types.ts:331`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:334`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -1037,7 +1075,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `e481c46af3813e0010558e93f578b2986acd658404cec2d1679e3ac2a6c48654`
 
 -Sources: [`packages/core/session/src/types.ts:298`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -1046,7 +1084,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `54f9276a1617d7c12594722c89cfe864bcbe4517e9a6f9c98bab14f199a135e0`
 
 -Sources: [`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:361`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:359`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -1055,7 +1093,7 @@ index 5cd37161..020cf72b 100644
  SHA-256: `ef11a3b7fa2033ae4279545ff8a8a2ee4e301b9b73e5b91654c48e6d08283545`
 
 -Sources: [`packages/core/session/src/types.ts:300`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:302`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
@@ -1064,12 +1102,12 @@ index 5cd37161..020cf72b 100644
  SHA-256: `f90eb4ab2d3897bc20c521a038e3119d581f791ec974b1a0004f63a8ab9e232d`
 
 -Sources: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:294`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:292`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
 
  | Property | Presence | Type |
  |---|---|---|
 diff --git a/docs/persistence-catalog.zh.md b/docs/persistence-catalog.zh.md
-index c12ce2c6..33f387ef 100644
+index c12ce2c6..71ee8a42 100644
 --- a/docs/persistence-catalog.zh.md
 +++ b/docs/persistence-catalog.zh.md
 @@ -21,8 +21,8 @@
@@ -1088,7 +1126,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:432`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:440`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:463`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:494`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:437`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:445`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:499`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:435`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:443`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:466`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:497`](../packages/core/session/src/types.ts)
 
  ## 事件
 
@@ -1097,7 +1135,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:361`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:359`](../packages/core/session/src/types.ts)
 
  <a id="assistantmessage--surface"></a>
 
@@ -1106,7 +1144,7 @@ index c12ce2c6..33f387ef 100644
  类型：[TokenUsage](subsystems/llm-streaming.zh.md)
 
 -来源：[`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:345`](../packages/core/session/src/types.ts)
 
  ### `command/*`
 
@@ -1115,7 +1153,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
 
  ### `feedback/*`
 
@@ -1124,7 +1162,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:403`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:408`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:406`](../packages/core/session/src/types.ts)
 
  <a id="requestheader--log-only"></a>
 
@@ -1133,7 +1171,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:391`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:394`](../packages/core/session/src/types.ts)
 
  ### `sandbox/*`
 
@@ -1142,7 +1180,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:428`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:431`](../packages/core/session/src/types.ts)
 
  <a id="sessiontitle--log-only"></a>
 
@@ -1151,7 +1189,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:302`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts)
 
  <a id="stepstart--log-only"></a>
 
@@ -1160,7 +1198,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:300`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
 
  ### `subagent/*`
 
@@ -1169,7 +1207,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:331`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:334`](../packages/core/session/src/types.ts)
 
  ### `team/*`
 
@@ -1178,7 +1216,7 @@ index c12ce2c6..33f387ef 100644
  类型：[ToolCallId](subsystems/core.zh.md)
 
 -来源：[`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:367`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:365`](../packages/core/session/src/types.ts)
 
  <a id="toolptc-dispatch--log-only"></a>
 
@@ -1187,7 +1225,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:381`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:379`](../packages/core/session/src/types.ts)
 
  ### `tool-workflow/*`
 
@@ -1196,7 +1234,7 @@ index c12ce2c6..33f387ef 100644
  类型：[TurnEndReason](subsystems/session.zh.md)
 
 -来源：[`packages/core/session/src/types.ts:298`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
 
  <a id="turnstart--log-only"></a>
 
@@ -1205,7 +1243,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:294`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:292`](../packages/core/session/src/types.ts)
 
  ### `user/*`
 
@@ -1214,7 +1252,7 @@ index c12ce2c6..33f387ef 100644
  ```
 
 -来源：[`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:313`](../packages/core/session/src/types.ts)
 
  ### `web/*`
 
@@ -1238,7 +1276,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `ada310bf0bdb8fed51f3b56ea63f6ea6b18bbd587f04fccb63a14ab0b2a24e05`
 
 -来源：[`packages/core/session/src/types.ts:191`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:196`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
++来源：[`packages/core/session/src/types.ts:194`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1247,7 +1285,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `9a930283b91d493d6347146f2475bb107294b379415ca02162354f46a64164f7`
 
 -来源：[`packages/core/session/src/types.ts:241`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:246`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:244`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1283,7 +1321,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `3bd652ebfa8726b3ce3937a4f1bd2759e02f86b3a08a20f9e41a8513656fbc5f`
 
 -来源：[`packages/core/session/src/types.ts:66`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:71`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:69`](../packages/core/session/src/types.ts)
 
  以下类型之一：
 
@@ -1292,7 +1330,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `b158f3ff6923714807c0d73882f0b05dc87f8fa85c9e90814852d48bbc866081`
 
 -来源：[`packages/core/session/src/types.ts:255`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:260`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:258`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1301,7 +1339,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `530da6c0267813bb4511af72883cc518834e624e3b3220a7062955fd57a788a6`
 
 -来源：[`packages/core/session/src/types.ts:274`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:279`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:277`](../packages/core/session/src/types.ts)
 
  以下类型之一：
 
@@ -1322,7 +1360,7 @@ index c12ce2c6..33f387ef 100644
 +SHA-256: `b83636858c092bb763f8bc7cd561aa8d99172ea880e454b4290f4b8a273ca948`
 
 -来源：[`packages/core/session/src/types.ts:95`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:100`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:98`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1340,7 +1378,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `335e242de1fcc17b6ca920fc420d71bec2d76e53e37955c00948b65ab77f05c5`
 
 -来源：[`packages/core/session/src/types.ts:463`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:466`](../packages/core/session/src/types.ts)
 
  以下类型之一：
 
@@ -1349,7 +1387,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `1f8c126cfab3df812cd115cfc23e3256f0fa2383400f4ce91ecad313577e59b0`
 
 -来源：[`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:202`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:200`](../packages/core/session/src/types.ts)
 
  | kind | form 属性 | 其他必需字段 | 完整定义 |
  |---|---|---|---|
@@ -1358,7 +1396,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `f1687f982fa3d41ef29e159feed154ecd13af4dd209acaee16038f223f2e9402`
 
 -来源：[`packages/core/session/src/types.ts:233`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:238`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:236`](../packages/core/session/src/types.ts)
 
  | kind | form 属性 | 其他必需字段 | 完整定义 |
  |---|---|---|---|
@@ -1367,7 +1405,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `0657d3ca5ac4e7bf79b00bcf860b1c7159d01a9da137497221ec2f1776e365f7`
 
 -来源：[`packages/core/session/src/types.ts:33`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:38`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:36`](../packages/core/session/src/types.ts)
 
  `number`
 
@@ -1394,7 +1432,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `e4c18e294232c3ba6c9f1999f168263cc55956147cfe4121720899be8e52edd1`
 
 -来源：[`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:367`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:365`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1403,7 +1441,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `a81059ca06999da1e712414520c2c65e491d052fcf9640fae20aa38f0a5dc735`
 
 -来源：[`packages/core/session/src/types.ts:384`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:389`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
++来源：[`packages/core/session/src/types.ts:387`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1412,7 +1450,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825`
 
 -来源：[`packages/core/session/src/types.ts:465`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1421,7 +1459,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `79650cfa10aa3c52440328d85e8a25f0ffadc8d7efd784e3c0819d8bb74a1985`
 
 -来源：[`packages/core/session/src/types.ts:213`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:218`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:216`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1430,7 +1468,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `5302e763151277614b97e77f00e3b326694c6c1247b916a20503c344dc970777`
 
 -来源：[`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:381`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:379`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1439,7 +1477,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `ad0c38a0adb82a94c925456df41586d9b5f9202fca18593eae2213d4445b4585`
 
 -来源：[`packages/core/session/src/types.ts:391`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:394`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1448,7 +1486,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `f4ed4717b4c259e933b550a8dcd90dc93628cda8a3c7affcaa53b9c13c1d53eb`
 
 -来源：[`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1457,7 +1495,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `17d1afb770d9941936130996da00dc86782cfef731d8d6526162c301256a4ac3`
 
 -来源：[`packages/core/session/src/types.ts:428`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:431`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1466,7 +1504,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `1ccb56061942f5ccb0d30c9e4f2883b9d115ff906560029de637b61d3cde896d`
 
 -来源：[`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:345`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1475,7 +1513,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `0a30c3be336cdd4f8f34e66543a3d46d611c43986edd9b3ce6cbb9b721d3b5d3`
 
 -来源：[`packages/core/session/src/types.ts:205`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:210`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:208`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1484,7 +1522,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `023a355b2be0d688fb6e4df8388dadb942761d46cfe96d0f499aae9631a159d4`
 
 -来源：[`packages/core/session/src/types.ts:207`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:212`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:210`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1493,7 +1531,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `b6ef9c6210be8350cd465f485cf520031fffa6bf3809c61a1e713e834c5982d0`
 
 -来源：[`packages/core/session/src/types.ts:203`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:208`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:206`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1502,7 +1540,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `4bb451330ff699f36b45539ceb0eb2606ead72084e2c5bb637c36cc80e2252db`
 
 -来源：[`packages/core/session/src/types.ts:194`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:199`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1511,7 +1549,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `ec8b5ff7c77ca6893ac7ba5a0c5b2aefeb52f12c64450b7359660c2a7e8a53d7`
 
 -来源：[`packages/core/session/src/types.ts:229`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:234`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:232`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1520,7 +1558,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `6c5a37d42ebdb12db4410699259335f1e149e3a0260425684c00b153afc8990d`
 
 -来源：[`packages/core/session/src/types.ts:193`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:198`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:196`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1529,7 +1567,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `56b7c047694875a843ba020dfea3c8380d54ae4ff88ab349e72004dc21e07c23`
 
 -来源：[`packages/core/session/src/types.ts:222`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:227`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:225`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1538,7 +1576,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `eaa71be0fbf0f702df8ea6c11d0aa2f9782263d45a10d0fb14eda662f4bfe04c`
 
 -来源：[`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:202`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:200`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1547,7 +1585,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `ab7ec5f9eb2c6dfacca5da4c37cf7ba85d04172053ee6b1ebf1709ffcd99c1a7`
 
 -来源：[`packages/core/session/src/types.ts:215`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:220`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
++来源：[`packages/core/session/src/types.ts:218`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1556,7 +1594,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `6c03546143cdf6ae88f1745ac98c5139efa1588d1415249bbc5f3104d32ab800`
 
 -来源：[`packages/core/session/src/types.ts:192`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:195`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1565,7 +1603,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `6bc8e51124d0874bc89e1d0ceff381a9c3cd0fc240667d69f841ce4f60f65fe5`
 
 -来源：[`packages/core/session/src/types.ts:331`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:334`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1574,7 +1612,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `e481c46af3813e0010558e93f578b2986acd658404cec2d1679e3ac2a6c48654`
 
 -来源：[`packages/core/session/src/types.ts:298`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1583,7 +1621,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `54f9276a1617d7c12594722c89cfe864bcbe4517e9a6f9c98bab14f199a135e0`
 
 -来源：[`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:361`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:359`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1592,7 +1630,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `ef11a3b7fa2033ae4279545ff8a8a2ee4e301b9b73e5b91654c48e6d08283545`
 
 -来源：[`packages/core/session/src/types.ts:300`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:302`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1601,7 +1639,7 @@ index c12ce2c6..33f387ef 100644
  SHA-256: `f90eb4ab2d3897bc20c521a038e3119d581f791ec974b1a0004f63a8ab9e232d`
 
 -来源：[`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:294`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
++来源：[`packages/core/session/src/types.ts:292`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
 
  | 属性 | 存在性 | 类型 |
  |---|---|---|
@@ -1647,7 +1685,7 @@ index 055e07f9..11eaf340 100644
  <!-- persistence-format-index:end -->
 
 diff --git a/docs/persistence-schema.json b/docs/persistence-schema.json
-index 87853fac..9766b461 100644
+index 87853fac..d861cfe0 100644
 --- a/docs/persistence-schema.json
 +++ b/docs/persistence-schema.json
 @@ -4,7 +4,7 @@
@@ -1727,7 +1765,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:207"
-+        "packages/core/session/src/types.ts:212"
++        "packages/core/session/src/types.ts:210"
        ]
      },
      {
@@ -1736,7 +1774,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:33"
-+        "packages/core/session/src/types.ts:38"
++        "packages/core/session/src/types.ts:36"
        ]
      },
      {
@@ -1745,7 +1783,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:205"
-+        "packages/core/session/src/types.ts:210"
++        "packages/core/session/src/types.ts:208"
        ]
      },
      {
@@ -1754,7 +1792,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:428"
-+        "packages/core/session/src/types.ts:433"
++        "packages/core/session/src/types.ts:431"
        ]
      },
      {
@@ -1795,7 +1833,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:342"
-+        "packages/core/session/src/types.ts:347"
++        "packages/core/session/src/types.ts:345"
        ]
      },
      {
@@ -1804,7 +1842,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:197"
-+        "packages/core/session/src/types.ts:202"
++        "packages/core/session/src/types.ts:200"
        ]
      },
      {
@@ -1813,7 +1851,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:463"
-+        "packages/core/session/src/types.ts:468"
++        "packages/core/session/src/types.ts:466"
        ]
      },
      {
@@ -1822,7 +1860,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:66"
-+        "packages/core/session/src/types.ts:71"
++        "packages/core/session/src/types.ts:69"
        ]
      },
      {
@@ -1831,7 +1869,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:194"
-+        "packages/core/session/src/types.ts:199"
++        "packages/core/session/src/types.ts:197"
        ]
      },
      {
@@ -1840,7 +1878,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:376"
-+        "packages/core/session/src/types.ts:381"
++        "packages/core/session/src/types.ts:379"
        ]
      },
      {
@@ -1849,7 +1887,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:274"
-+        "packages/core/session/src/types.ts:279"
++        "packages/core/session/src/types.ts:277"
        ]
      },
      {
@@ -1858,7 +1896,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:356"
-+        "packages/core/session/src/types.ts:361"
++        "packages/core/session/src/types.ts:359"
        ]
      },
      {
@@ -1867,7 +1905,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:222"
-+        "packages/core/session/src/types.ts:227"
++        "packages/core/session/src/types.ts:225"
        ]
      },
      {
@@ -1876,7 +1914,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:331"
-+        "packages/core/session/src/types.ts:336"
++        "packages/core/session/src/types.ts:334"
        ]
      },
      {
@@ -1884,7 +1922,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:192"
-+        "packages/core/session/src/types.ts:197"
++        "packages/core/session/src/types.ts:195"
        ]
      },
      {
@@ -1893,7 +1931,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:193"
-+        "packages/core/session/src/types.ts:198"
++        "packages/core/session/src/types.ts:196"
        ]
      },
      {
@@ -1918,7 +1956,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:213"
-+        "packages/core/session/src/types.ts:218"
++        "packages/core/session/src/types.ts:216"
        ]
      },
      {
@@ -1927,7 +1965,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:241"
-+        "packages/core/session/src/types.ts:246"
++        "packages/core/session/src/types.ts:244"
        ]
      },
      {
@@ -1936,7 +1974,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:384",
-+        "packages/core/session/src/types.ts:389",
++        "packages/core/session/src/types.ts:387",
          "packages/core/tools/src/types.ts:27"
        ]
      },
@@ -1945,7 +1983,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:215",
-+        "packages/core/session/src/types.ts:220",
++        "packages/core/session/src/types.ts:218",
          "packages/llm/llm/src/types.ts:159"
        ]
      },
@@ -1954,7 +1992,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:391"
-+        "packages/core/session/src/types.ts:396"
++        "packages/core/session/src/types.ts:394"
        ]
      },
      {
@@ -1963,7 +2001,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:191",
-+        "packages/core/session/src/types.ts:196",
++        "packages/core/session/src/types.ts:194",
          "packages/interaction/commands/src/types.ts:75",
          "packages/interaction/commands/src/types.ts:79",
          "packages/llm/llm/src/message.ts:111",
@@ -1972,7 +2010,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:255"
-+        "packages/core/session/src/types.ts:260"
++        "packages/core/session/src/types.ts:258"
        ]
      },
      {
@@ -1981,7 +2019,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:203"
-+        "packages/core/session/src/types.ts:208"
++        "packages/core/session/src/types.ts:206"
        ]
      },
      {
@@ -2007,7 +2045,7 @@ index 87853fac..9766b461 100644
 +        "packages/core/session/src/types.ts#SessionHeader"
 +      ],
 +      "sources": [
-+        "packages/core/session/src/types.ts:100"
++        "packages/core/session/src/types.ts:98"
 +      ]
 +    },
      {
@@ -2018,7 +2056,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:465"
-+        "packages/core/session/src/types.ts:470"
++        "packages/core/session/src/types.ts:468"
        ]
      },
      {
@@ -2027,7 +2065,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:298"
-+        "packages/core/session/src/types.ts:303"
++        "packages/core/session/src/types.ts:301"
        ]
      },
      {
@@ -2035,7 +2073,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:362"
-+        "packages/core/session/src/types.ts:367"
++        "packages/core/session/src/types.ts:365"
        ]
      },
      {
@@ -2044,7 +2082,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:197"
-+        "packages/core/session/src/types.ts:202"
++        "packages/core/session/src/types.ts:200"
        ]
      },
 +    {
@@ -2060,7 +2098,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:229"
-+        "packages/core/session/src/types.ts:234"
++        "packages/core/session/src/types.ts:232"
        ]
      },
      {
@@ -2070,8 +2108,8 @@ index 87853fac..9766b461 100644
        "sources": [
 -        "packages/core/session/src/types.ts:300",
 -        "packages/core/session/src/types.ts:302"
-+        "packages/core/session/src/types.ts:305",
-+        "packages/core/session/src/types.ts:307"
++        "packages/core/session/src/types.ts:303",
++        "packages/core/session/src/types.ts:305"
        ]
      },
      {
@@ -2080,7 +2118,7 @@ index 87853fac..9766b461 100644
        ],
        "sources": [
 -        "packages/core/session/src/types.ts:233"
-+        "packages/core/session/src/types.ts:238"
++        "packages/core/session/src/types.ts:236"
        ]
      },
      {
@@ -2089,7 +2127,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:312"
-+        "packages/core/session/src/types.ts:317"
++        "packages/core/session/src/types.ts:315"
        ]
      },
      {
@@ -2098,7 +2136,7 @@ index 87853fac..9766b461 100644
        "names": [],
        "sources": [
 -        "packages/core/session/src/types.ts:289",
-+        "packages/core/session/src/types.ts:294",
++        "packages/core/session/src/types.ts:292",
          "packages/deliverables/workspace-changes/src/types.ts:106"
        ]
      },
@@ -2733,10 +2771,19 @@ index 21d90151..0af5a3d8 100644
      const ctx = new Context()
      await ctx.plugin(AgentRegistry)
 diff --git a/packages/core/session/src/index.ts b/packages/core/session/src/index.ts
-index e1ecb920..b491bde8 100644
+index e1ecb920..21d39901 100644
 --- a/packages/core/session/src/index.ts
 +++ b/packages/core/session/src/index.ts
-@@ -121,8 +121,11 @@ function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
+@@ -24,6 +24,8 @@ import type { ToolHistory } from '@deepseek-ai/dsh-llm'
+
+ import { buildForkSeed } from './fork.ts'
+
++/** Durable root identity for an independent sidechat outside ordinary workspace views. */
++export const SIDECHAT_SESSION_ORIGIN = 'sidechat' as const
+ export { buildForkSeed } from './fork.ts'
+ export * from './types.ts'
+ export { SessionPreparation } from './preparation.ts'
+@@ -121,8 +123,11 @@ function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
    if (typeof record.isSeeded !== 'boolean') {
      throw new Error('session header isSeeded must be a boolean')
    }
@@ -2751,22 +2798,20 @@ index e1ecb920..b491bde8 100644
    if (record.delegationDepth !== undefined
      && (typeof record.delegationDepth !== 'number' || !Number.isSafeInteger(record.delegationDepth) || record.delegationDepth < 0)) {
 diff --git a/packages/core/session/src/types.ts b/packages/core/session/src/types.ts
-index e0931f22..e73dd27e 100644
+index e0931f22..e3f9512b 100644
 --- a/packages/core/session/src/types.ts
 +++ b/packages/core/session/src/types.ts
-@@ -20,6 +20,11 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+@@ -20,6 +20,9 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
  /** Identifies one session in the store (and its persistence artifacts). */
  export type SessionId = Branded<'SessionId'>
 
-+/** Durable root identity for an independent sidechat outside ordinary workspace views. */
-+export const SIDECHAT_SESSION_ORIGIN = 'sidechat' as const
 +/** Persisted identity of a delegated child or an independent sidechat root. */
-+export type SessionOrigin = 'subagent' | typeof SIDECHAT_SESSION_ORIGIN
++export type SessionOrigin = 'subagent' | 'sidechat'
 +
  /**
   * Brand a string as a {@link SessionId}.
   * @param id - the raw session id string.
-@@ -112,10 +117,10 @@ export interface SessionHeader {
+@@ -112,10 +115,10 @@ export interface SessionHeader {
     */
    readonly isSeeded: boolean
    /**
@@ -2780,7 +2825,7 @@ index e0931f22..e73dd27e 100644
    /**
     * Delegation depth: absent (zero) for a top-level session, parent depth + 1
     * for a subagent child. Persisted so a recursion budget survives restart and
-@@ -154,7 +159,7 @@ export interface CreateSessionOptions {
+@@ -154,7 +157,7 @@ export interface CreateSessionOptions {
      readonly parentSession?: SessionId
      readonly createdAt?: number
      readonly isSeeded?: boolean
@@ -2826,7 +2871,7 @@ index 5483c354..9464bdd6 100644
        { meta: { delegationDepth: 0.5 }, error: /delegationDepth must be a non-negative safe integer/ },
        { meta: { delegationDepth: -1 }, error: /delegationDepth must be a non-negative safe integer/ },
 diff --git a/packages/extensions/tool-cordis/src/api-catalog.ts b/packages/extensions/tool-cordis/src/api-catalog.ts
-index 03fdcaa7..dbd4eaf8 100644
+index 03fdcaa7..08f753f5 100644
 --- a/packages/extensions/tool-cordis/src/api-catalog.ts
 +++ b/packages/extensions/tool-cordis/src/api-catalog.ts
 @@ -2058,6 +2058,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
@@ -2874,7 +2919,7 @@ index 03fdcaa7..dbd4eaf8 100644
    },
 +  {
 +    name: 'SessionOrigin',
-+    declaration: 'export type SessionOrigin = \'subagent\' | typeof SIDECHAT_SESSION_ORIGIN;',
++    declaration: 'export type SessionOrigin = \'subagent\' | \'sidechat\';',
 +  },
    {
      name: 'SessionPage',

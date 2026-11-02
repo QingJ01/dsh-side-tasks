@@ -77,14 +77,14 @@ export class SideTaskService extends TypertRemoteService {
     if (this.ctx.workspaceRegistry.archivedSessionIds.includes(sourceSessionId)) throw new Error('An archived parent cannot create a side chat.')
     const observed = await (this.ctx.sessionQuery as Query).observeSession(sourceSessionId, { projectionMode: 'all', signal })
     try {
-      const { header, events, inheritedEventCount } = observed
-      if (header.parentSession !== undefined || header.origin !== undefined) throw new Error('Side chats require a root ordinary Session.')
+      const { header, events } = observed
+      if (header.origin !== undefined) throw new Error('Side chats require an ordinary Session.')
       const projected = observed.projections?.values
       const modelSelection = projected?.modelSelection?.next
       const model: AgentOptions | undefined = modelSelection === null || modelSelection === undefined
         ? undefined
         : { ...modelSelection }
-      const permissionEvents = events.slice(inheritedEventCount)
+      const permissionEvents = events
       const permissionPreset = permissionEvents.findLast(event => event.type === 'permission/preset')
       const sandboxMode = permissionEvents.findLast(event => event.type === 'sandbox/mode')
       const approvalPolicy = permissionEvents.findLast(event => event.type === 'approval/policy')
