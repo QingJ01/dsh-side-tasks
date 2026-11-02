@@ -53,7 +53,7 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 
 **Deletion semantics:** Harness exposes durable archival, not physical deletion of session logs through its public plugin API. This plugin uses that supported lifecycle and never edits session files directly. The UI describes this as ending and removing the temporary chat, not erasing its files.
 
-**Known limitation:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it.
+**Known limitations:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it. Close performs one Remote discard request; if the app exits or the connection drops before that request completes, archival is best-effort and may need a retry.
 
 Context is captured once from the parent's latest completed-turn prefix. An in-flight parent turn is intentionally excluded. A side chat does not continuously track later parent messages.
 
