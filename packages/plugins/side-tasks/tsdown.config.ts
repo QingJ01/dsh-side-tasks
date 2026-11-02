@@ -2,6 +2,7 @@ import { defineConfig } from 'tsdown'
 
 const hostExternals = [
   '@deepseek-ai/cordis',
+  '@deepseek-ai/dsh-subagent',
   '@deepseek-ai/dsh-typert-protocol',
 ]
 

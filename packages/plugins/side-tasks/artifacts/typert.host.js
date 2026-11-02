@@ -134,6 +134,7 @@ const $remote = createTypertRemoteInfo({
       service: 'sideTasks',
       description: 'Create a context-inheriting side task without creating an ordinary session.',
       invocation: { kind: 'direct' },
+      cancellation: { parameter: 'signal' },
       scope: { context: 'agent', wire: 'agentId' },
       parameters: [
         {
@@ -199,12 +200,13 @@ const $remote = createTypertRemoteInfo({
           additionalProperties: true,
         },
       },
-      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 32, column: 3 },
+      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 46, column: 3 },
     },
     'sideTasks/discard': {
       service: 'sideTasks',
       description: 'Stop and archive a side chat when its tab closes.',
       invocation: { kind: 'direct' },
+      cancellation: { parameter: 'signal' },
       scope: { context: 'agent', wire: 'agentId' },
       parameters: [
         {
@@ -266,7 +268,7 @@ const $remote = createTypertRemoteInfo({
           additionalProperties: true,
         },
       },
-      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 43, column: 3 },
+      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 62, column: 3 },
     },
   },
 }, z)

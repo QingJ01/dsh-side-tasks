@@ -91,7 +91,7 @@ export function SideTaskAction({
     if (open) refreshSideTasks()
   }, [open, sessionId])
 
-  if (isChild) return null
+  if (isChild || archivedSessionIds.includes(sessionId)) return null
 
   const close = (): void => {
     if (!pending) setOpen(false)

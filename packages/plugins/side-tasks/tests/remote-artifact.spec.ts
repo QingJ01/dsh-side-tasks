@@ -9,6 +9,13 @@ describe('Typert Remote artifacts', () => {
     expect(Object.keys(TYPERT_REMOTE.methods)).toEqual(['sideTasks/create', 'sideTasks/discard'])
   })
 
+  it('wires the Gateway-injected cancellation signal on both endpoints', () => {
+    for (const id of ['dsh-side-tasks#sideTasks/create', 'dsh-side-tasks#sideTasks/discard']) {
+      const invocation = TYPERT.invocations.find(item => item.id === id)
+      expect(invocation?.cancellation).toEqual({ parameter: 'signal' })
+    }
+  })
+
   it('validates wire input and result with the public protocol factory', () => {
     const method = TYPERT_REMOTE.methods['sideTasks/create']
     expect(method).toBeDefined()

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SideTaskAddress } from '../src/types.ts'
-import { apply } from '../src/client/index.ts'
+import { apply, inject } from '../src/client/index.ts'
 import { SIDE_CHAT_KIND, SIDE_CHAT_PAGE_ADDRESS, sideTaskChatAddress } from '../src/shared.ts'
 
 const address: SideTaskAddress = {
@@ -11,6 +11,19 @@ const address: SideTaskAddress = {
 }
 
 describe('client creation and close lifecycle', () => {
+  it('stays inert instead of failing boot when its Remote contribution cannot mount', async () => {
+    expect(inject).not.toContain('remote.sideTasks')
+    const injectChild = vi.fn()
+    const ctx = {
+      effect: (callback: () => unknown) => callback(),
+      locale: { register: vi.fn() },
+      remote: { $mount: vi.fn(async () => { throw new Error('malformed contribution') }) },
+      inject: injectChild,
+    }
+    await expect(apply(ctx as never)).resolves.toEqual(expect.any(Function))
+    expect(injectChild).not.toHaveBeenCalled()
+  })
+
   it('opens children and discards the same identity on tab close without another create', async () => {
     let registration: { definition: { inject: (id: SessionId) => {
       createSideTask: (prompt: string) => Promise<unknown>
@@ -18,6 +31,7 @@ describe('client creation and close lifecycle', () => {
       refreshSideTasks: () => void
     } } } | undefined
     let closeHandler: ((parent: SessionId, tab: { id: string; contentId: string }) => void) | undefined
+    let bodyRegistration: { name?: string; children?: Record<string, unknown> } | undefined
     const create = vi.fn(async () => ({ ok: true as const, value: address }))
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
     const openResource = vi.fn()
@@ -26,6 +40,8 @@ describe('client creation and close lifecycle', () => {
       closeHandler = handler
       return () => {}
     })
+    const unmountRemote = vi.fn(async () => {})
+    const mountRemote = vi.fn(async () => unmountRemote)
     const ctx = {
       effect: (callback: () => unknown) => callback(),
       inject: (_dependencies: string[], callback: (scope: unknown) => unknown) => callback(ctx),
@@ -36,27 +52,56 @@ describe('client creation and close lifecycle', () => {
           if (seat === 'conversation.session.header.actions') registration = value
           return value
         },
-        register: (definition: unknown) => ({ definition }),
+        register: (definition: { name?: string; children?: Record<string, unknown> }) => {
+          if (definition.name === 'sidebar.right.pane.tab') bodyRegistration = definition
+          return { definition }
+        },
       },
       resources: { register: vi.fn(() => () => {}) },
       sidebarRightTabs: { register: vi.fn(() => () => {}) },
-      remote: { sideTasks: { create, discard } },
+      remote: { $mount: mountRemote, sideTasks: { create, discard } },
       sessions: {
         refreshProjections,
-        list: { getSnapshot: vi.fn(() => ({ byId: {} })) },
+        list: {
+          getSnapshot: vi.fn(() => ({
+            byId: {},
+            projectionsBySession: {
+              parent: {
+                values: {
+                  subagentCatalog: [{
+                    id: 'existing',
+                    createdAt: 1,
+                    mode: 'continuable',
+                    label: 'Side task · Existing investigation',
+                  }],
+                },
+              },
+            },
+          })),
+        },
       },
       sidebarRight: { openResource, registerCloseHandler },
     }
-    apply(ctx as never)
+    await apply(ctx as never)
 
+    expect(mountRemote).toHaveBeenCalledOnce()
     expect(registration).toBeDefined()
     expect(registerCloseHandler).toHaveBeenCalledWith(SIDE_CHAT_KIND, expect.any(Function))
+    expect(bodyRegistration?.children).toEqual({
+      'dsh-side-tasks.conversation': { kind: 'single', scope: 'session' },
+    })
+    expect(bodyRegistration?.children).not.toHaveProperty('sidebar.chat.conversation')
     const tabType = ctx.sidebarRightTabs.register.mock.calls[0]?.[0]
     expect(tabType.guide).toHaveLength(1)
     expect(tabType.guide[0].order).toBe(25)
     expect(tabType.guide[0].title()).toBe('empty.title')
     expect(tabType.guide[0].description()).toBe('guide.description')
     expect(typeof tabType.guide[0].icon).toBe('function')
+    expect(tabType.title(sideTaskChatAddress({
+      parentSessionId: 'parent' as SessionId,
+      childSessionId: 'existing' as SessionId,
+      mode: 'continuable',
+    }))).toBe('Existing investigation')
     const actions = registration!.definition.inject('parent' as SessionId)
     await actions.createSideTask('investigate')
     expect(create).toHaveBeenCalledWith('parent', { prompt: 'investigate' })
@@ -69,6 +114,11 @@ describe('client creation and close lifecycle', () => {
     expect(create).toHaveBeenCalledTimes(1)
 
     closeHandler!('parent' as SessionId, { id: 'start-page', contentId: SIDE_CHAT_PAGE_ADDRESS })
+    expect(discard).not.toHaveBeenCalled()
+    expect(() => closeHandler!('parent' as SessionId, {
+      id: 'malformed',
+      contentId: 'dsh-resource://sidechat/session/not-a-valid-address',
+    })).not.toThrow()
     expect(discard).not.toHaveBeenCalled()
 
     closeHandler!('parent' as SessionId, {

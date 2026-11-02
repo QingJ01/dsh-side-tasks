@@ -1,6 +1,8 @@
 /** Browser entry for temporary, context-inheriting side chats. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import remoteContribution from 'dsh-side-tasks/remote'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
@@ -26,9 +28,7 @@ interface SideTasksRemote {
   discard(parentSessionId: SessionId, request: DiscardSideTaskRequest): Promise<RemoteResult<DiscardSideTaskResult>>
 }
 
-type SideTaskClientContext = ClientContext & {
-  remote: { sideTasks: SideTasksRemote }
-}
+type SideTaskRemote = ClientContext['remote'] & { sideTasks: SideTasksRemote }
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -36,57 +36,95 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-export const inject = ['slots', 'sessions', 'remote', 'remote.sideTasks', 'locale', 'sidebarRight']
+// `remote.sideTasks` is intentionally absent here. It is awaited inside a
+// child injection so a Host-side registration failure disables this feature
+// instead of leaving the whole Web boot waiting forever.
+export const inject = ['slots', 'sessions', 'remote', 'locale', 'sidebarRight']
 
 /** Register the header entry, side-chat tab type, and close lifecycle. */
-export function apply(ctx: SideTaskClientContext): void {
+export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'side-tasks: dictionaries')
-  ctx.inject(['resources', 'sidebarRightTabs'], (scope) => {
-    registerSideChat(scope, ctx.locale.bind(NS), (parentSessionId, prompt) => (
-      ctx.remote.sideTasks.create(parentSessionId, { prompt })
-    ))
-  })
-  ctx.effect(() => ctx.sidebarRight.registerCloseHandler(SIDE_CHAT_KIND, (parentSessionId, tab) => {
-    if (tab.contentId === SIDE_CHAT_PAGE_ADDRESS) return
-    const address = parseSideTaskChatAddress(tab.contentId)
-    if (address === undefined || address.parentSessionId !== parentSessionId) {
-      throw new Error(`side-tasks: tab "${tab.id}" does not belong to session "${parentSessionId}"`)
+  let unmountRemote: (() => Promise<void>) | undefined
+  try {
+    unmountRemote = await ctx.remote.$mount(remoteContribution)
+  } catch (error: unknown) {
+    console.error(`side-tasks: Remote mount failed: ${String(error)}`)
+    return async () => {}
+  }
+  const ui = ctx.inject(['resources', 'sidebarRightTabs', 'remote.sideTasks'], (scope) => {
+    const remote = (scope.remote as SideTaskRemote).sideTasks
+    // Host and browser faces merge `Context.sessions` differently in one
+    // standalone TypeScript project; the client injection owns ISessions.
+    const sessions = scope.sessions as unknown as ISessions
+    const createSideTask = async (parentSessionId: SessionId, prompt: string) => {
+      const result = await remote.create(parentSessionId, { prompt })
+      if (result.ok) {
+        try {
+          // The tab title is captured at open time from the projected catalog.
+          // Let the new descriptor arrive before mounting the tab.
+          await sessions.refreshProjections(parentSessionId)
+        } catch (error: unknown) {
+          console.error(`side-tasks: projection refresh failed: ${String(error)}`)
+        }
+      }
+      return result
     }
-    void ctx.remote.sideTasks.discard(parentSessionId, {
-      childSessionId: address.childSessionId,
-    }).then((result) => {
-      if (!result.ok) console.error(`side-tasks: discard failed: ${result.error.message}`)
-    }).catch((error: unknown) => {
-      console.error(`side-tasks: discard failed: ${String(error)}`)
-    })
-  }), 'side-tasks: close lifecycle')
 
-  ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
-    name: 'conversation.session.header.actions',
-    id: 'side-tasks',
-    order: 12,
-    locale: NS,
-    inject: (parentSessionId: SessionId) => ({
-      refreshSideTasks() {
-        void ctx.sessions.refreshProjections(parentSessionId)
-      },
-      async createSideTask(prompt: string) {
-        const result = await ctx.remote.sideTasks.create(parentSessionId, { prompt })
-        if (result.ok) {
-          void ctx.sessions.refreshProjections(parentSessionId)
-          ctx.sidebarRight.openResource(sideTaskChatAddress(result.value), {
+    registerSideChat(scope, sessions, scope.locale.bind(NS), createSideTask)
+
+    scope.effect(() => scope.sidebarRight.registerCloseHandler(SIDE_CHAT_KIND, (parentSessionId, tab) => {
+      if (tab.contentId === SIDE_CHAT_PAGE_ADDRESS) return
+      const address = parseSideTaskChatAddress(tab.contentId)
+      if (address === undefined || address.parentSessionId !== parentSessionId) {
+        console.error(`side-tasks: tab "${tab.id}" does not belong to session "${parentSessionId}"`)
+        return
+      }
+      void remote.discard(parentSessionId, {
+        childSessionId: address.childSessionId,
+      }).then((result) => {
+        if (!result.ok) console.error(`side-tasks: discard failed: ${result.error.message}`)
+      }).catch((error: unknown) => {
+        console.error(`side-tasks: discard failed: ${String(error)}`)
+      })
+    }), 'side-tasks: close lifecycle')
+
+    scope.slots.inject('conversation.session.header.actions', () => scope.slots.register({
+      name: 'conversation.session.header.actions',
+      id: 'side-tasks',
+      order: 12,
+      locale: NS,
+      inject: (parentSessionId: SessionId) => ({
+        refreshSideTasks() {
+          void sessions.refreshProjections(parentSessionId)
+        },
+        async createSideTask(prompt: string) {
+          const result = await createSideTask(parentSessionId, prompt)
+          if (result.ok) {
+            scope.sidebarRight.openResource(sideTaskChatAddress(result.value), {
+              kind: SIDE_CHAT_KIND,
+              preferNewPane: true,
+            })
+          }
+          return result
+        },
+        openSideTask(address: SideTaskAddress) {
+          scope.sidebarRight.openResource(sideTaskChatAddress(address), {
             kind: SIDE_CHAT_KIND,
             preferNewPane: true,
           })
-        }
-        return result
-      },
-      openSideTask(address: SideTaskAddress) {
-        ctx.sidebarRight.openResource(sideTaskChatAddress(address), {
-          kind: SIDE_CHAT_KIND,
-          preferNewPane: true,
-        })
-      },
-    }),
-  }, SideTaskAction))
+        },
+      }),
+    }, SideTaskAction))
+  })
+  try {
+    await ui
+  } catch (error) {
+    await ui.dispose()
+    await unmountRemote()
+    throw error
+  }
+  return async () => {
+    await ui.dispose()
+    await unmountRemote()
+  }
 }

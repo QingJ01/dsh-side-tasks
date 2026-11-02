@@ -17,8 +17,9 @@ export const zh = {
   'existing.empty': '当前会话还没有侧边任务。',
   'open.aria': '在右侧栏重新打开 {label}',
   'empty.title': '侧边聊天',
-  'empty.description': '侧边聊天是临时聊天，关闭标签后会结束并移除。',
+  'empty.description': '侧边聊天是临时聊天，关闭标签后会结束并归档。',
   'guide.description': '继承当前会话上下文，创建临时侧边聊天',
+  'create.blocked': '当前会话是子会话或已归档，不能创建侧边聊天。',
 } as const
 
 export type SideTaskKey = keyof typeof zh
@@ -31,7 +32,7 @@ export const en: Record<SideTaskKey, string> = {
   'prompt.label': 'First task',
   'prompt.placeholder': 'For example: investigate these test failures without changing code yet',
   'prompt.required': 'Enter a task first.',
-  'create': 'Create and open aside',
+  'create': 'Create and open',
   'create.pending': 'Creating…',
   'create.failed': 'Could not create the side task: {message}',
   'cancel': 'Cancel',
@@ -40,6 +41,7 @@ export const en: Record<SideTaskKey, string> = {
   'existing.empty': 'No side tasks in this session yet.',
   'open.aria': 'Reopen {label} in the right sidebar',
   'empty.title': 'Side chat',
-  'empty.description': 'Side chat is temporary. Closing its tab ends and removes it.',
+  'empty.description': 'Side chat is temporary. Closing its tab ends and archives it.',
   'guide.description': 'Start a temporary side chat with this session’s context',
+  'create.blocked': 'This session is a child or is archived, so it cannot start a side chat.',
 }

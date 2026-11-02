@@ -8,36 +8,37 @@
 
 - 会话顶部的**侧边聊天**按钮，同一个弹窗支持新建和关闭前恢复。
 - 右侧栏“开始”页的原生卡片，使用 Harness 同款 `IconNewChatOutlineRegular` 线性图标，点击进入首个任务创建页。
-- 使用 Harness 标准 `fork` 子智能体后端继承上下文。
+- 注册专用 `side-task` 子智能体后端，在创建时复制父会话已完成回合的上下文。
 - 子会话为空时显示“侧边聊天是临时聊天，关闭标签后会结束并移除”。
 - 使用 `caller` 投递方式独立执行，完成后不自动向主对话注入消息。
 - 独立的 `sidechat` 资源和关闭钩子，不影响模型创建的普通子智能体标签。
-- `sideTasks/discard` 校验插件所有权，停止子会话并归档。
+- `sideTasks/discard` 通过持久化 `side-task` provider descriptor 校验所有权，停止子会话并归档。
 - 已归档子会话从插件的恢复列表中消失。
 
 ## 环境要求
 
-- DeepSeek Harness `>=0.1.0-rc.5 <0.3.0`
+- DeepSeek Harness `>=0.2.1-rc.5 <0.3.0`
 - 开发时需要 Node.js `>=24.9.0`
-- profile 中具有标准 `fork` 子智能体提供方、Workspace registry 和 `dsh-client-ui-subagent`（官方 Web/Desktop 组合默认具备）
+- profile 中具有子智能体运行时、Session Query、Workspace registry 和 `dsh-client-ui-subagent`（官方 Web/Desktop 组合默认具备）
 
 ## 安装
 
-从 [最新 Release](https://github.com/QingJ01/dsh-side-tasks/releases/latest) 下载 `dsh-side-tasks-0.1.0.tgz`，然后安装到 profile：
-
-```sh
-dsh plugin --profile desktop add ./dsh-side-tasks-0.1.0.tgz
-```
-
-Web profile 请改用 `--profile web`。安装后重启 Harness，打开一个会话，点击顶部的**侧边聊天**。
-
-从本地源码安装：
+**0.1.0 尚未发布。** 这里是开发中的 0.1.0，GitHub 上暂时没有 Release 和 tag。请从源码构建：
 
 ```sh
 git clone https://github.com/QingJ01/dsh-side-tasks.git
 cd dsh-side-tasks
 pnpm install
 pnpm build
+dsh plugin --profile desktop add ./packages/plugins/side-tasks
+```
+
+Web profile 请改用 `--profile web`。安装后重启 Harness，打开一个会话，点击顶部的**侧边聊天**。
+
+同一版本修改后需要先移除再安装（pnpm 不会重新展开同版本 `file:` 包）：
+
+```sh
+dsh plugin --profile desktop remove dsh-side-tasks
 dsh plugin --profile desktop add ./packages/plugins/side-tasks
 ```
 
@@ -53,6 +54,8 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 | 任务完成 | 结果留在子会话记录中，不自动唤醒父会话模型。 |
 
 **删除语义**：Harness 的公开插件 API 提供的是持久化归档，不提供物理删除会话日志。本插件使用受支持的生命周期，不直接修改会话文件；界面中的“结束并移除”不代表擦除磁盘记录。
+
+**已知限制**：Harness 内置子智能体目录不会过滤已归档子会话，因此关闭后的侧边聊天仍可能在该目录中被枚举，直到 Harness 提供删除或目录过滤扩展点。本插件不会改写父会话的不可变日志来隐藏它。
 
 **上下文范围**：创建时截取父会话最近一个完整回合结束之前的历史，未完成的当前回合不会纳入。上下文只截取一次，后续主会话的新消息不会持续同步到已经创建的侧边聊天。
 
@@ -71,12 +74,12 @@ pnpm --filter dsh-side-tasks pack --pack-destination dist
 - `src/side-task.ts`：上下文创建、所有权校验、停止与归档。
 - `src/client/index.ts`：会话头部入口、资源打开和关闭生命周期。
 - `src/client/sidebar-chat.tsx`：独立标签适配与临时空状态提示。
-- `artifacts/`：基于公开 `createTypertRemoteInfo` 的 Remote 描述与类型。
+- `artifacts/`：内置惰性 Remote 描述工厂，避免受 profile 中旧的 Typert 协议子路径影响。
 - `scripts/postbuild.mjs`：整理 Harness 约定的 `client.js` 和 Remote 构建产物。
 
 ## 测试覆盖
 
-18 项测试覆盖：上下文 fork、caller 投递、空任务与取消、Remote 严格校验、标签地址、创建与恢复、关闭时停止并归档、拒绝误删普通子智能体、归档后隐藏恢复项，以及临时空状态提示。
+28 项测试覆盖：专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 挂载、真实 SlotCore 所有权、标签地址与标题、创建与恢复、归档优先的关闭生命周期、descriptor 所有权校验、拒绝伪装标签误删、Host 缺失时客户端不阻塞启动、归档后隐藏恢复项、子会话/归档父会话禁止创建，以及临时空状态提示。
 
 ## License
 

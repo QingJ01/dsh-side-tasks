@@ -5,7 +5,7 @@ import type {
   DiscardSideTaskRequest,
   DiscardSideTaskResult,
   SideTaskAddress,
-} from 'dsh-side-tasks'
+} from 'dsh-side-tasks/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$736964655461736b73 {

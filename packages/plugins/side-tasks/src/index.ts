@@ -2,8 +2,10 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import type {} from '@deepseek-ai/dsh-session-query'
 import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-workspace'
+import { SideTaskProvider } from './provider.ts'
 import { discardSideTask, startSideTask } from './side-task.ts'
 import type {
   CreateSideTaskRequest,
@@ -27,10 +29,11 @@ declare module '@deepseek-ai/cordis' {
 
 /** Remote namespace (`ctx.remote.sideTasks`) and host lifecycle owner. */
 export class SideTaskService extends TypertRemoteService {
-  static inject = ['agents', 'subagents', 'workspaceRegistry']
+  static inject = ['agents', 'subagents', 'workspaceRegistry', 'sessionQuery']
 
   constructor(ctx: Context) {
     super(ctx, 'sideTasks')
+    ctx.effect(() => ctx.subagents.registerProvider(new SideTaskProvider()), 'side-tasks: provider')
   }
 
   /**
@@ -46,7 +49,13 @@ export class SideTaskService extends TypertRemoteService {
     request: CreateSideTaskRequest,
     signal: AbortSignal,
   ): Promise<SideTaskAddress> {
-    return await startSideTask(this.ctx.subagents, agent, request.prompt, signal)
+    return await startSideTask(
+      this.ctx.subagents,
+      agent,
+      request.prompt,
+      signal,
+      this.ctx.subagents.resolveMaxDepth(),
+    )
   }
 
   /** Stop and archive one plugin-owned child when its tab closes. */
@@ -59,6 +68,7 @@ export class SideTaskService extends TypertRemoteService {
     return await discardSideTask(
       this.ctx.subagents,
       this.ctx.workspaceRegistry,
+      this.ctx.sessionQuery,
       agent,
       request.childSessionId,
       signal,

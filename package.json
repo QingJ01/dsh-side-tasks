@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "pnpm --filter dsh-side-tasks build",
-    "typecheck": "tsc -b packages/plugins/side-tasks/tsconfig.host.json packages/plugins/side-tasks/tsconfig.client.json --pretty",
+    "typecheck": "node packages/plugins/side-tasks/scripts/prebuild.mjs && tsc -b packages/plugins/side-tasks/tsconfig.host.json packages/plugins/side-tasks/tsconfig.client.json --pretty",
     "test": "pnpm --filter dsh-side-tasks build && vitest run",
     "check": "pnpm test"
   },

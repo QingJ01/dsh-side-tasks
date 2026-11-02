@@ -16,13 +16,27 @@ function fixture() {
   return { parent, activation, startActivation, starter }
 }
 
+function queryFor(provider: string, label = `${SIDE_TASK_LABEL_PREFIX}investigate`) {
+  const dispose = vi.fn()
+  return {
+    dispose,
+    query: {
+      observeSession: vi.fn(async () => ({
+        events: [{ type: 'subagent/descriptor', data: { version: 3, mode: 'continuable', provider, label } }],
+        inheritedEventCount: 0,
+        [Symbol.dispose]: dispose,
+      })),
+    },
+  }
+}
+
 describe('startSideTask', () => {
-  it('uses a context-inheriting fork and caller-only delivery', async () => {
+  it('uses the dedicated context-inheriting provider and caller-only delivery', async () => {
     const { parent, startActivation, starter } = fixture()
     const result = await startSideTask(starter, parent, '  investigate failures  ', new AbortController().signal)
     expect(startActivation).toHaveBeenCalledOnce()
     const spec = startActivation.mock.calls[0]?.[0]
-    expect(spec?.provider).toBe('fork')
+    expect(spec?.provider).toBe('side-task')
     expect(spec?.delivery).toBe('caller')
     expect(spec?.label.startsWith(SIDE_TASK_LABEL_PREFIX)).toBe(true)
     expect(spec?.request.parent).toBe(parent)
@@ -32,6 +46,12 @@ describe('startSideTask', () => {
       childSessionId: 'child-session',
       mode: 'continuable',
     })
+  })
+
+  it('forwards the profile delegation depth cap', async () => {
+    const { parent, startActivation, starter } = fixture()
+    await startSideTask(starter, parent, 'task', new AbortController().signal, 2)
+    expect(startActivation.mock.calls[0]?.[0].request.maxDepth).toBe(2)
   })
 
   it('rejects an empty prompt before allocating a child', async () => {
@@ -60,38 +80,43 @@ describe('discardSideTask', () => {
     }])
     const drainChildren = vi.fn(async () => {})
     const archiveSession = vi.fn(async () => {})
+    const { query, dispose } = queryFor('side-task')
     const result = await discardSideTask(
       { listChildren, drainChildren } as never,
       { archiveSession } as never,
+      query as never,
       parent,
       'child-session' as SessionId,
       new AbortController().signal,
     )
     expect(drainChildren).toHaveBeenCalledWith(parent, ['child-session'])
     expect(archiveSession).toHaveBeenCalledWith('child-session', { stopActivity: true })
+    expect(dispose).toHaveBeenCalledOnce()
     expect(result).toEqual({ discarded: true })
   })
 
-  it('refuses to discard a model-delegated or unrelated child', async () => {
+  it('refuses a model-delegated child even when its label spoofs the prefix', async () => {
     const { parent } = fixture()
     const drainChildren = vi.fn(async () => {})
     const archiveSession = vi.fn(async () => {})
+    const { query } = queryFor('fork')
     const subagents = {
       listChildren: vi.fn(async () => [{
         id: 'other' as SessionId,
         createdAt: 1,
         mode: 'continuable' as const,
-        label: 'ordinary delegation',
+        label: `${SIDE_TASK_LABEL_PREFIX}spoofed`,
       }]),
       drainChildren,
     }
     await expect(discardSideTask(
       subagents as never,
       { archiveSession } as never,
+      query as never,
       parent,
       'other' as SessionId,
       new AbortController().signal,
-    )).rejects.toThrow('not a side task')
+    )).rejects.toThrow('not created by the side-task plugin')
     expect(drainChildren).not.toHaveBeenCalled()
     expect(archiveSession).not.toHaveBeenCalled()
   })

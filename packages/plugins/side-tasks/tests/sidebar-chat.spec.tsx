@@ -8,12 +8,25 @@ import { en, type SideTaskKey } from '../src/client/locales.ts'
 afterEach(cleanup)
 
 describe('SideChatEmptyState', () => {
-  it('explains that closing the tab ends and removes the temporary chat', () => {
+  it('explains that closing the tab ends and archives the temporary chat', () => {
     const t = ((key: SideTaskKey) => en[key]) as never
     render(<SideChatEmptyState t={t} />)
     expect(screen.getByRole('heading', { name: en['empty.title'] })).toBeTruthy()
     expect(screen.getByText(en['empty.description'])).toBeTruthy()
-    expect(en['empty.description']).toContain('Closing its tab ends and removes it')
+    expect(en['empty.description']).toContain('Closing its tab ends and archives it')
+  })
+
+  it('blocks creation from a child or archived session', () => {
+    const t = ((key: SideTaskKey) => en[key]) as never
+    render(<SideChatStartPage
+      parentSessionId={'child' as SessionId}
+      createSideTask={vi.fn()}
+      onCreated={vi.fn()}
+      t={t}
+      blocked
+    />)
+    expect(screen.getByText(en['create.blocked'])).toBeTruthy()
+    expect(screen.queryByLabelText(en['prompt.label'])).toBeNull()
   })
 
   it('creates from the guide start page and opens the resulting child', async () => {
