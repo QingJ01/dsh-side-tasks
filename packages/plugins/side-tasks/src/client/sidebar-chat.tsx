@@ -7,7 +7,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-subagent/client'
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
 import type { ConversationSnapshot, ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SidebarRightTabDefinition, SidebarRightTabInfo } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import { Button, IconNewChatOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button,
+  IconNewChatOutlineRegular,
+  IconSendOutlineRegular,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import { RemoteError, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
@@ -192,22 +196,20 @@ export function SideChatStartPage({
   }
   if (blocked) {
     return (
-      <div style={{ position: 'relative', width: '100%', height: '100%' }} data-side-chat-start="">
-        <SideChatEmptyState t={t} />
-        <p style={{
-          position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-          margin: 0, width: 'min(560px, calc(100% - 48px))', textAlign: 'center', opacity: 0.75,
-        }}>{t('create.blocked')}</p>
+      <div style={{
+        display: 'flex', width: '100%', height: '100%', alignItems: 'center',
+        justifyContent: 'center', padding: 24, textAlign: 'center', opacity: 0.75,
+      }} data-side-chat-start="">
+        {t('create.blocked')}
       </div>
     )
   }
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }} data-side-chat-start="">
-      <SideChatEmptyState t={t} />
-      <div style={{
-        position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-        width: 'min(560px, calc(100% - 48px))', display: 'flex', flexDirection: 'column', gap: 10,
-      }}>
+    <div style={{
+      display: 'flex', width: '100%', height: '100%', alignItems: 'flex-end',
+      justifyContent: 'center', padding: 20, boxSizing: 'border-box',
+    }} data-side-chat-start="">
+      <div style={{ width: 'min(560px, 100%)', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <textarea
           autoFocus
           aria-label={t('prompt.label')}
@@ -216,16 +218,25 @@ export function SideChatStartPage({
           disabled={pending}
           onChange={event => { setDraft(event.target.value); setError(undefined) }}
           style={{
-            boxSizing: 'border-box', width: '100%', minHeight: 88, resize: 'vertical', padding: 12,
+            boxSizing: 'border-box', width: '100%', minHeight: 96, resize: 'vertical', padding: 12,
             border: '1px solid var(--dsw-alias-border-primary, #8886)', borderRadius: 12,
             color: 'var(--dsw-alias-text-primary, inherit)', background: 'var(--dsw-alias-bg-primary, transparent)',
             font: 'inherit', lineHeight: 1.5,
           }}
         />
         {error !== undefined && <p role="alert">{error}</p>}
-        <Button variant="primary" disabled={pending} onClick={() => { void create() }}>
-          {pending ? t('create.pending') : t('create')}
-        </Button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={pending}
+            icon={<IconSendOutlineRegular />}
+            style={{ width: 32, height: 32, padding: 0 }}
+            aria-label={pending ? t('create.pending') : t('create')}
+            title={pending ? t('create.pending') : t('create')}
+            onClick={() => { void create() }}
+          />
+        </div>
       </div>
     </div>
   )

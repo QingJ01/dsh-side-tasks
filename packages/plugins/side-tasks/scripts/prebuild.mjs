@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const artifacts = join(packageRoot, 'artifacts')
 const output = join(packageRoot, 'lib')
+// Remove type/bundle outputs from deleted source files; tsc -b does not prune.
+rmSync(output, { recursive: true, force: true })
 mkdirSync(output, { recursive: true })
 
 const hostRemote = readFileSync(join(artifacts, 'typert.host.js'), 'utf8')

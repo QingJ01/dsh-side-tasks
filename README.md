@@ -6,7 +6,7 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 
 ## Features
 
-- A small **Side chat** icon at the right of the conversation header; it creates a blank side chat directly in the right sidebar using the normal Conversation UI, with no modal or custom start page.
+- A small **Side chat** icon at the right of the conversation header; it opens the first-task start page in the current right-sidebar pane, without splitting or a modal. After the first task is created, the conversation body uses Harness's normal Conversation UI.
 - A native card on the right sidebar's Start page, using Harness's `IconNewChatOutlineRegular` and leading to a first-task start page.
 - A dedicated `side-task` subagent provider that copies the parent's completed-turn context once.
 - A centered temporary-chat notice while the child is empty.

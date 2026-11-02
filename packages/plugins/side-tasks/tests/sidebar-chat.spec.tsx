@@ -39,7 +39,6 @@ describe('SideChatEmptyState', () => {
     const createSideTask = vi.fn(async () => ({ ok: true as const, value: address }))
     const onCreated = vi.fn()
     render(<SideChatStartPage parentSessionId={'parent' as SessionId} createSideTask={createSideTask} onCreated={onCreated} t={t} />)
-    expect(screen.getByText(en['empty.description'])).toBeTruthy()
     fireEvent.change(screen.getByLabelText(en['prompt.label']), { target: { value: 'inspect the failures' } })
     fireEvent.click(screen.getByRole('button', { name: en.create }))
     await waitFor(() => expect(createSideTask).toHaveBeenCalledWith('parent', 'inspect the failures'))

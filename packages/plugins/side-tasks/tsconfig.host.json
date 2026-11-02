@@ -5,7 +5,6 @@
     "outDir": "lib/types"
   },
   "include": [
-    "src/blank.ts",
     "src/index.ts",
     "src/provider.ts",
     "src/side-task.ts",
