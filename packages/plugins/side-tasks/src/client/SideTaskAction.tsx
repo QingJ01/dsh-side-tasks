@@ -1,7 +1,7 @@
 import { useState, type CSSProperties, type KeyboardEvent } from 'react'
 import {
   Button,
-  IconBranchOutlineRegular,
+  IconNewChatOutlineRegular,
   Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
@@ -17,7 +17,7 @@ export interface SideTaskActionInjected {
 }
 
 export type SideTaskActionProps =
-  PropsRuntime<'conversation.session.header.actions'>
+  PropsRuntime<'conversation.session.header.utilities'>
   & SideTaskActionInjected
   & PropsLocale<typeof NS>
 
@@ -93,15 +93,14 @@ export function SideTaskAction({
   return (
     <>
       <Button
-        variant="toolbar"
+        variant="ghost"
         size="sm"
-        icon={<IconBranchOutlineRegular size={15} />}
-        aria-label={t('action.open')}
+        icon={<IconNewChatOutlineRegular size={15} />}
+        style={{ width: 28, padding: 0 }}
+        aria-label={t('action.label')}
         title={t('action.open')}
         onClick={() => { setError(undefined); setOpen(true) }}
-      >
-        {t('action.label')}
-      </Button>
+      />
       <Modal
         open={open}
         onClose={close}

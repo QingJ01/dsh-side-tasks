@@ -41,7 +41,7 @@ afterEach(cleanup)
 describe('SideTaskAction', () => {
   it('submits a trimmed first task', async () => {
     const props = renderAction()
-    fireEvent.click(screen.getByRole('button', { name: en['action.open'] }))
+    fireEvent.click(screen.getByRole('button', { name: en['action.label'] }))
     fireEvent.change(screen.getByLabelText(en['prompt.label']), { target: { value: '  inspect failures  ' } })
     fireEvent.click(screen.getByRole('button', { name: en.create }))
     await waitFor(() => expect(props.createSideTask).toHaveBeenCalledWith('inspect failures'))
@@ -52,7 +52,7 @@ describe('SideTaskAction', () => {
       selector({ archivedSessionIds: [parentId] })
     )) as SideTaskActionProps['useWorkspaces']
     renderAction({ useWorkspaces })
-    expect(screen.queryByRole('button', { name: en['action.open'] })).toBeNull()
+    expect(screen.queryByRole('button', { name: en['action.label'] })).toBeNull()
   })
 
   it('is not rendered on subagent child sessions', () => {
@@ -64,7 +64,7 @@ describe('SideTaskAction', () => {
       projectionsBySession: {},
     })) as SideTaskActionProps['useSessions']
     renderAction({ useSessions })
-    expect(screen.queryByRole('button', { name: en['action.open'] })).toBeNull()
+    expect(screen.queryByRole('button', { name: en['action.label'] })).toBeNull()
   })
 
   it('keeps the dialog open with an actionable error on failure', async () => {
@@ -73,7 +73,7 @@ describe('SideTaskAction', () => {
       error: { message: 'parent offline' },
     }))
     const props = renderAction({ createSideTask: createSideTask as SideTaskActionProps['createSideTask'] })
-    fireEvent.click(screen.getByRole('button', { name: en['action.open'] }))
+    fireEvent.click(screen.getByRole('button', { name: en['action.label'] }))
     fireEvent.change(screen.getByLabelText(en['prompt.label']), { target: { value: 'task' } })
     fireEvent.click(screen.getByRole('button', { name: en.create }))
     await screen.findByRole('alert')

@@ -85,7 +85,7 @@ describe('client creation and close lifecycle', () => {
       slots: {
         inject: (seat: string, callback: () => unknown) => {
           const value = callback() as typeof registration
-          if (seat === 'conversation.session.header.actions') registration = value
+          if (seat === 'conversation.session.header.utilities') registration = value
           return value
         },
         register: (definition: { name?: string; children?: Record<string, unknown> }) => {

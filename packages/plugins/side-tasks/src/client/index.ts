@@ -120,10 +120,10 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       })
     }), 'side-tasks: close lifecycle')
 
-    scope.slots.inject('conversation.session.header.actions', () => scope.slots.register({
-      name: 'conversation.session.header.actions',
+    scope.slots.inject('conversation.session.header.utilities', () => scope.slots.register({
+      name: 'conversation.session.header.utilities',
       id: 'side-tasks',
-      order: 12,
+      order: -7,
       locale: NS,
       inject: (parentSessionId: SessionId) => ({
         async createSideTask(prompt: string) {
