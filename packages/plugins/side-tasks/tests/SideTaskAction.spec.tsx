@@ -1,17 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SideTaskAddress } from '../src/types.ts'
 import { SideTaskAction, type SideTaskActionProps } from '../src/client/SideTaskAction.tsx'
 import { en, type SideTaskKey } from '../src/client/locales.ts'
 
 const parentId = 'parent' as SessionId
-const address: SideTaskAddress = {
-  parentSessionId: parentId,
-  childSessionId: 'child' as SessionId,
-  mode: 'continuable',
-}
 
 function translate(key: SideTaskKey, params?: Record<string, string | number>): string {
   let text: string = en[key]
@@ -28,7 +22,7 @@ function renderAction(overrides: Partial<SideTaskActionProps> = {}) {
     sessionId: parentId,
     useSessions: (selector: (value: typeof state) => unknown) => selector(state),
     useWorkspaces: (selector: (value: { archivedSessionIds: SessionId[] }) => unknown) => selector({ archivedSessionIds: [] }),
-    createSideTask: vi.fn(async () => ({ ok: true as const, value: address })),
+    openSideChat: vi.fn(),
     t: translate,
     ...overrides,
   } as SideTaskActionProps
@@ -39,12 +33,11 @@ function renderAction(overrides: Partial<SideTaskActionProps> = {}) {
 afterEach(cleanup)
 
 describe('SideTaskAction', () => {
-  it('submits a trimmed first task', async () => {
+  it('opens the right-side dialog directly without a modal', () => {
     const props = renderAction()
     fireEvent.click(screen.getByRole('button', { name: en['action.label'] }))
-    fireEvent.change(screen.getByLabelText(en['prompt.label']), { target: { value: '  inspect failures  ' } })
-    fireEvent.click(screen.getByRole('button', { name: en.create }))
-    await waitFor(() => expect(props.createSideTask).toHaveBeenCalledWith('inspect failures'))
+    expect(props.openSideChat).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('is not rendered for archived parent sessions', () => {
@@ -65,19 +58,5 @@ describe('SideTaskAction', () => {
     })) as SideTaskActionProps['useSessions']
     renderAction({ useSessions })
     expect(screen.queryByRole('button', { name: en['action.label'] })).toBeNull()
-  })
-
-  it('keeps the dialog open with an actionable error on failure', async () => {
-    const createSideTask = vi.fn(async () => ({
-      ok: false as const,
-      error: { message: 'parent offline' },
-    }))
-    const props = renderAction({ createSideTask: createSideTask as SideTaskActionProps['createSideTask'] })
-    fireEvent.click(screen.getByRole('button', { name: en['action.label'] }))
-    fireEvent.change(screen.getByLabelText(en['prompt.label']), { target: { value: 'task' } })
-    fireEvent.click(screen.getByRole('button', { name: en.create }))
-    await screen.findByRole('alert')
-    expect(screen.getByRole('alert').textContent).toContain('parent offline')
-    expect(screen.getByRole('dialog')).toBeTruthy()
   })
 })

@@ -63,14 +63,13 @@ describe('client creation and close lifecycle', () => {
 
   it('opens children and discards the same identity on tab close without another create', async () => {
     let registration: { definition: { inject: (id: SessionId) => {
-      createSideTask: (prompt: string) => Promise<unknown>
+      openSideChat: () => void
     } } } | undefined
     let closeHandler: ((parent: SessionId, tab: { id: string; contentId: string }) => void) | undefined
     let bodyRegistration: { name?: string; children?: Record<string, unknown> } | undefined
     const create = vi.fn(async () => ({ ok: true as const, value: address }))
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
-    const openResource = vi.fn()
-    const openResourceIn = vi.fn()
+    const openTab = vi.fn()
     const refreshProjections = vi.fn()
     const registerCloseHandler = vi.fn((_kind: string, handler: typeof closeHandler) => {
       closeHandler = handler
@@ -116,12 +115,7 @@ describe('client creation and close lifecycle', () => {
           })),
         },
       },
-      sidebarRight: {
-        openResource,
-        openResourceIn,
-        tabsIn: vi.fn(() => [{ contentId: sideTaskChatAddress(address) }]),
-        registerCloseHandler,
-      },
+      sidebarRight: { openTab, registerCloseHandler },
     }
     await apply(ctx as never)
 
@@ -144,13 +138,9 @@ describe('client creation and close lifecycle', () => {
       mode: 'continuable',
     }))).toBe('Existing investigation')
     const actions = registration!.definition.inject('parent' as SessionId)
-    await actions.createSideTask('investigate')
-    expect(create).toHaveBeenCalledWith('parent', { prompt: 'investigate' })
-    expect(openResourceIn).toHaveBeenCalledTimes(1)
-    expect(openResourceIn.mock.calls[0]?.[0]).toBe('parent')
-    expect(openResourceIn.mock.calls[0]?.[1]).toBe(sideTaskChatAddress(address))
-    expect(openResourceIn.mock.calls[0]?.[2]).toEqual({ kind: SIDE_CHAT_KIND, preferNewPane: true })
-    expect(openResource).not.toHaveBeenCalled()
+    actions.openSideChat()
+    expect(openTab).toHaveBeenCalledWith(SIDE_CHAT_KIND, { preferNewPane: true })
+    expect(create).not.toHaveBeenCalled()
 
     const existing: SideTaskAddress = { ...address, childSessionId: 'existing' as SessionId }
 
@@ -170,7 +160,6 @@ describe('client creation and close lifecycle', () => {
       parentSessionId: 'parent',
       childSessionId: 'existing',
     }))
-    expect(create).toHaveBeenCalledTimes(1)
-    expect(openResourceIn).toHaveBeenCalledTimes(1)
+    expect(create).not.toHaveBeenCalled()
   })
 })

@@ -208,6 +208,7 @@ export function SideChatStartPage({
         width: 'min(560px, calc(100% - 48px))', display: 'flex', flexDirection: 'column', gap: 10,
       }}>
         <textarea
+          autoFocus
           aria-label={t('prompt.label')}
           placeholder={t('prompt.placeholder')}
           value={draft}

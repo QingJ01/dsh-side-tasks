@@ -18,7 +18,7 @@ import type {
   DiscardSideTaskResult,
   SideTaskAddress,
 } from '../types.ts'
-import { parseSideTaskChatAddress, SIDE_CHAT_KIND, SIDE_CHAT_PAGE_ADDRESS, sideTaskChatAddress } from '../shared.ts'
+import { parseSideTaskChatAddress, SIDE_CHAT_KIND, SIDE_CHAT_PAGE_ADDRESS } from '../shared.ts'
 import {
   browserDiscardStorage,
   enqueuePendingDiscard,
@@ -84,20 +84,6 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       return result
     }
 
-    const discardCreatedChild = async (
-      parentSessionId: SessionId,
-      childSessionId: SessionId,
-    ): Promise<void> => {
-      const request = { parentSessionId, childSessionId }
-      enqueuePendingDiscard(storage, request)
-      try {
-        const result = await remote.discard(request)
-        if (result.ok) removePendingDiscard(storage, request)
-      } catch {
-        // The pending marker retries this cleanup on the next activation.
-      }
-    }
-
     registerSideChat(scope, sessions, scope.locale.bind(NS), createSideTask)
     void flushPendingDiscards(storage, request => remote.discard(request), {
       shouldSkip: request => sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0,
@@ -125,36 +111,9 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       id: 'side-tasks',
       order: -7,
       locale: NS,
-      inject: (parentSessionId: SessionId) => ({
-        async createSideTask(prompt: string) {
-          const result = await createSideTask(parentSessionId, prompt)
-          if (result.ok) {
-            // The header action's session can differ from the currently mounted
-            // one when a create round-trip overlaps a session switch.
-            const tabs = scope.sidebarRight as unknown as {
-              openResourceIn(
-                sessionId: SessionId,
-                address: string,
-                options: { kind: string; preferNewPane: boolean },
-              ): void
-              tabsIn?(sessionId: SessionId): readonly { contentId: string }[]
-            }
-            const address = sideTaskChatAddress(result.value)
-            try {
-              tabs.openResourceIn(parentSessionId, address, {
-                kind: SIDE_CHAT_KIND,
-                preferNewPane: true,
-              })
-              await Promise.resolve()
-              const placed = typeof tabs.tabsIn !== 'function'
-                || tabs.tabsIn(parentSessionId).some(tab => tab.contentId === address)
-              if (!placed) throw new Error('the side-chat tab was not committed')
-            } catch (error: unknown) {
-              await discardCreatedChild(parentSessionId, result.value.childSessionId)
-              throw new Error(`The side chat was created but could not be opened: ${String(error)}`)
-            }
-          }
-          return result
+      inject: () => ({
+        openSideChat() {
+          scope.sidebarRight.openTab(SIDE_CHAT_KIND, { preferNewPane: true })
         },
       }),
     }, SideTaskAction))
