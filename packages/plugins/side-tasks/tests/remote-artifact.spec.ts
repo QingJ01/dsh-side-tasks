@@ -6,7 +6,7 @@ import { TYPERT_REMOTE } from '../lib/typert.remote-client.js'
 describe('Typert Remote artifacts', () => {
   it('publishes the same creation endpoint on Host and Client', () => {
     expect(TYPERT.invocations.map(item => item.id)).toContain('dsh-side-tasks#sideTasks/create')
-    expect(Object.keys(TYPERT_REMOTE.methods)).toEqual(['sideTasks/create', 'sideTasks/discard'])
+    expect(Object.keys(TYPERT_REMOTE.methods)).toEqual(['sideTasks/create', 'sideTasks/discard', 'sideTasks/configure'])
   })
 
   it('keeps the artifact endpoint set in parity with source decorators', () => {
@@ -74,6 +74,19 @@ describe('Typert Remote artifacts', () => {
     const client = readFileSync(new URL('../lib/typert.remote-client.js', import.meta.url), 'utf8')
     expect(host).not.toContain('@deepseek-ai/dsh-typert-protocol/remote-info')
     expect(client).not.toContain('@deepseek-ai/dsh-typert-protocol/remote-info')
+  })
+
+  it('validates child configuration without Agent lookup or unknown preset arguments', () => {
+    const method = TYPERT_REMOTE.methods['sideTasks/configure']
+    const input = method.input({ strict: true }).create()
+    const request = { parentSessionId: 'parent', childSessionId: 'child', kind: 'model', selection: { provider: 'test', model: 'next', reasoningEffort: 'high' } }
+    expect(input.parse({ request })).toEqual({ request })
+    expect(() => input.parse({ request: { ...request, selection: { ...request.selection, extra: true } } })).toThrow()
+    expect(() => input.parse({ request: { parentSessionId: 'parent', childSessionId: 'child', kind: 'permission', preset: 'workspace-write; other' } })).toThrow()
+    const descriptor = TYPERT.invocations.find(item => item.method === 'configure')
+    expect(descriptor?.scope).toBeUndefined()
+    expect(descriptor?.cancellation).toEqual({ parameter: 'signal' })
+    expect(method.result.create().parse({ configured: true })).toEqual({ configured: true })
   })
 
   it('validates the close request and result', () => {

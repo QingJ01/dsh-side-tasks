@@ -82,6 +82,8 @@ describe('client creation and close lifecycle', () => {
       inject: (_dependencies: string[], callback: (scope: unknown) => unknown) => callback(ctx),
       locale: { register: vi.fn(), bind: vi.fn(() => (key: string) => key) },
       slots: {
+        entries: () => [],
+        subscribe: () => () => {},
         inject: (seat: string, callback: () => unknown) => {
           const value = callback() as typeof registration
           if (seat === 'conversation.session.header.utilities') registration = value

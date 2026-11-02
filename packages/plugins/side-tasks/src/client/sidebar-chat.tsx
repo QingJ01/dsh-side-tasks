@@ -75,6 +75,7 @@ function waitForAbort(signal: AbortSignal): Promise<void> {
 export function sideChatResourceProvider(
   sessions: ISessions,
   boundaries = new Map<SessionId, number>(),
+  addresses = new Map<SessionId, SideTaskAddress>(),
 ): ResourceProvider<'sidechat'> {
   return {
     protocol: 'sidechat',
@@ -88,6 +89,7 @@ export function sideChatResourceProvider(
         return
       }
       if (signal.aborted) return
+      addresses.set(address.childSessionId, address)
       if (address.contextThrough !== undefined) boundaries.set(address.childSessionId, address.contextThrough)
       let reference: SessionReference
       try {
@@ -283,9 +285,10 @@ export function registerSideChat(
   sessions: ISessions,
   t: TranslateNS<typeof NS>,
   preparations: SideChatPreparations,
+  addresses = new Map<SessionId, SideTaskAddress>(),
 ): void {
   const boundaries = new Map<SessionId, number>()
-  ctx.effect(() => ctx.resources.register(sideChatResourceProvider(sessions, boundaries)), 'side-tasks: chat resources')
+  ctx.effect(() => ctx.resources.register(sideChatResourceProvider(sessions, boundaries, addresses)), 'side-tasks: chat resources')
   ctx.effect(() => ctx.sidebarRightTabs.register({
     id: SIDEBAR_CHAT_ID,
     kind: SIDE_CHAT_KIND,

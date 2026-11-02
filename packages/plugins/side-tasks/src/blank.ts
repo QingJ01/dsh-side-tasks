@@ -1,3 +1,4 @@
+import type {} from '@deepseek-ai/dsh-api-session-controller'
 import { randomUUID } from 'node:crypto'
 import type { Agent, AgentRegistry } from '@deepseek-ai/dsh-agent'
 import type { SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session/types'
@@ -25,6 +26,11 @@ export async function createBlankSideTask(
   const depth = resolveChildDepth(parent, maxDepth)
   const options = resolveChildAgentOptions(parent, undefined, depth)
   const policy = captureDelegatedPolicyOverrides(parent)
+  const permissionPresets = parent.ctx.get('permissionPresets') as {
+    current(session: Agent['session']): string
+    set(session: Agent['session'], preset: string): void
+  } | undefined
+  const parentPreset = permissionPresets?.current(parent.session)
   const seed = completedTurnPrefix(parent)
   const label = createSideTaskLabel(SIDE_TASK_BLANK_LABEL)
   const cwd = parent.session.header.cwd
@@ -55,6 +61,13 @@ export async function createBlankSideTask(
         ...(options.reasoningEffort === undefined ? {} : { agentReasoningEffort: options.reasoningEffort }),
       })
       appendDelegatedPolicyOverrides(child.session, policy)
+      // A user-opened side chat starts with the parent's explicit menu preset;
+      // subsequent user choices belong solely to this child's own log.
+      if (parentPreset !== undefined && parentPreset !== 'custom') permissionPresets?.set(child.session, parentPreset)
+      if (options.provider !== undefined && options.model !== undefined) child.session.append('model/selection', {
+        provider: options.provider, model: options.model,
+        ...(options.reasoningEffort === undefined ? {} : { reasoningEffort: options.reasoningEffort }),
+      })
     },
   })
   const childCreatedAt = handle.agent.session.header.createdAt

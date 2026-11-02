@@ -7,8 +7,11 @@ import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-workspace'
 import { createBlankSideTask } from './blank.ts'
 import { SideTaskProvider } from './provider.ts'
+import { SideChatSettings } from './settings.ts'
 import { discardSideTask, startSideTask } from './side-task.ts'
 import type {
+  ConfigureSideTaskRequest,
+  ConfigureSideTaskResult,
   CreateSideTaskRequest,
   DiscardSideTaskRequest,
   DiscardSideTaskResult,
@@ -16,6 +19,8 @@ import type {
 } from './types.ts'
 
 export type {
+  ConfigureSideTaskRequest,
+  ConfigureSideTaskResult,
   CreateSideTaskRequest,
   DiscardSideTaskRequest,
   DiscardSideTaskResult,
@@ -32,8 +37,11 @@ declare module '@deepseek-ai/cordis' {
 export class SideTaskService extends TypertRemoteService {
   static inject = ['agents', 'subagents', 'workspaceRegistry', 'sessionQuery']
 
+  private readonly settings: SideChatSettings
+
   constructor(ctx: Context) {
     super(ctx, 'sideTasks')
+    this.settings = new SideChatSettings(ctx)
     ctx.effect(() => ctx.subagents.registerProvider(new SideTaskProvider()), 'side-tasks: provider')
   }
 
@@ -67,13 +75,19 @@ export class SideTaskService extends TypertRemoteService {
     )
   }
 
+  /** Apply a user-selected model or permission preset to this child only. */
+  @Remote('configure')
+  configure(request: ConfigureSideTaskRequest, signal: AbortSignal): Promise<ConfigureSideTaskResult> {
+    return this.settings.configure(request, signal)
+  }
+
   /** Stop and archive one plugin-owned child when its tab closes. */
   @Remote('discard')
   async discard(
     request: DiscardSideTaskRequest,
     signal: AbortSignal,
   ): Promise<DiscardSideTaskResult> {
-    return await discardSideTask(
+    return await this.settings.exclusive(request.childSessionId, () => discardSideTask(
       this.ctx.subagents,
       this.ctx.workspaceRegistry,
       this.ctx.sessionQuery,
@@ -81,7 +95,7 @@ export class SideTaskService extends TypertRemoteService {
       this.ctx.agents.get(request.parentSessionId),
       request.childSessionId,
       signal,
-    )
+    ))
   }
 }
 

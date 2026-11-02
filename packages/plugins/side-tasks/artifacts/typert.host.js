@@ -132,6 +132,17 @@ const strictDiscardRequest = () => z.strictObject({
   parentSessionId: z.string().readonly(),
   childSessionId: z.string().readonly(),
 })
+const configureRequest = (strict = false) => {
+  const object = strict ? z.strictObject.bind(z) : z.object.bind(z)
+  const ids = { parentSessionId: z.string().min(1), childSessionId: z.string().min(1) }
+  return z.discriminatedUnion('kind', [
+    object({ ...ids, kind: z.literal('model'), selection: object({
+      provider: z.string().min(1), model: z.string().min(1), reasoningEffort: z.string().optional(),
+    }) }),
+    object({ ...ids, kind: z.literal('permission'), preset: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/) }),
+  ])
+}
+const configureResult = () => z.object({ configured: z.literal(true).readonly() })
 const discardResult = () => z.object({ discarded: z.literal(true).readonly() })
 
 const $remote = createTypertRemoteInfo({
@@ -264,6 +275,21 @@ const $remote = createTypertRemoteInfo({
       },
       sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 62, column: 3 },
     },
+    'sideTasks/configure': {
+      service: 'sideTasks',
+      description: 'Change one owned child model or permission preset.',
+      invocation: { kind: 'direct' },
+      cancellation: { parameter: 'signal' },
+      parameters: [{
+        name: 'request', source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'dsh-side-tasks#ConfigureSideTaskRequest', create: () => configureRequest(false), jsonSchema: { type: 'object' } },
+        strictCodec: { mode: 'strict', typeSymbol: 'dsh-side-tasks#ConfigureSideTaskRequest', create: () => configureRequest(true), jsonSchema: { type: 'object' } },
+      }],
+      result: { mode: 'strict', typeSymbol: 'dsh-side-tasks#ConfigureSideTaskResult', create: configureResult,
+        jsonSchema: { type: 'object', properties: { configured: { const: true } }, required: ['configured'] } },
+      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 80, column: 3 },
+    },
+
   },
 }, z)
 
@@ -281,6 +307,10 @@ export const TYPERT = {
       key: 'sideTasks',
       exportName: 'SideTaskService',
       members: [{
+        kind: 'method', name: 'configure',
+        signature: "@Remote('configure') configure(request: ConfigureSideTaskRequest, signal: AbortSignal): Promise<ConfigureSideTaskResult>",
+        summary: 'Change one owned child model or permission preset.',
+      }, {
         kind: 'method',
         name: 'create',
         signature: "@Remote('create') async create(agent: Agent, request: CreateSideTaskRequest, signal: AbortSignal): Promise<SideTaskAddress>",

@@ -7,6 +7,7 @@
   "include": [
     "src/index.ts",
     "src/blank.ts",
+    "src/settings.ts",
     "src/provider.ts",
     "src/side-task.ts",
     "src/shared.ts",

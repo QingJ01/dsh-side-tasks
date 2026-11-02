@@ -7,6 +7,7 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 ## Features
 
 - A small **Side chat** icon at the right of the conversation header; it prepares one idle child in the current right-sidebar pane, then renders Harness's native Conversation and composer, including its editor, command menu, permission controls, and send/stop behavior. No handwritten first-message input or synthetic prompt is used.
+- Native model/reasoning and permission-preset menus. User choices persist on the child only; they do not change the parent or the global model default. Full access retains Harness's risk confirmation.
 - A native card on the right sidebar's Start page, using Harness's `IconNewChatOutlineRegular` and opening the same native side chat.
 - A dedicated `side-task` subagent provider that copies the parent's completed-turn context once.
 - A centered temporary-chat notice while the child is empty.
@@ -53,7 +54,7 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 
 **Deletion semantics:** Harness exposes durable archival, not physical deletion of session logs through its public plugin API. This plugin uses that supported lifecycle and never edits session files directly. The UI describes this as ending and removing the temporary chat, not erasing its files.
 
-**Native child controls:** Harness currently hides its model-selection seat for addressed subagents; the child inherits the parent's selected model. Cold-resumed children use the runtime's default parent settlement delivery, which may wake the parent. The plugin does not patch the runtime manager to suppress it.
+**Child settings:** Native menu components use a plugin-owned configuration endpoint authenticated against the child's parent lineage and own provider descriptor. Idle settings writers are disposed before sending is enabled; live manager-owned Agents are never disposed by a settings change. A resumed child restores its selected model and image-admission options from its own durable selection. Cold-resumed children still use the runtime's default parent settlement delivery, which may wake the parent.
 
 **Known limitations:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it. Close writes a browser-local pending marker before its Remote request and retries it on later activations, bounded to five attempts and seven days, skipping children still retained elsewhere. Losing that browser storage remains a window where archival can be missed.
 
