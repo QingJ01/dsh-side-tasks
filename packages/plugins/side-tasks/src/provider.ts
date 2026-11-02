@@ -12,7 +12,7 @@ import type {
 export const SIDE_TASK_PROVIDER = 'side-task'
 
 /** The balanced completed-turn prefix of a parent log. */
-function completedTurnPrefix(parent: Agent): SessionEvent[] {
+export function completedTurnPrefix(parent: Agent): SessionEvent[] {
   // oxlint-disable-next-line typescript/no-deprecated -- Existing history read; same contract as the fork provider.
   const events = parent.session.snapshotEvents()
   const lastEnd = events.findLast(event => event.type === 'turn/end')

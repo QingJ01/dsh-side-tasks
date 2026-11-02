@@ -6,7 +6,7 @@
 
 ## 功能
 
-- 会话右上角的**侧边聊天**小图标，点击直接在右侧栏打开临时聊天创建页，不再弹出模态框。
+- 会话右上角的**侧边聊天**小图标，点击直接在右侧栏创建一个空白临时对话，使用 Harness 正常的 Conversation UI，不弹模态框、不打开自定义创建页。
 - 右侧栏“开始”页的原生卡片，使用 Harness 同款 `IconNewChatOutlineRegular` 线性图标，点击进入首个任务创建页。
 - 注册专用 `side-task` 子智能体后端，在创建时复制父会话已完成回合的上下文。
 - 子会话为空时显示“侧边聊天是临时聊天，关闭标签后会结束并移除”。
@@ -76,7 +76,7 @@ pnpm --filter dsh-side-tasks pack --pack-destination dist
 
 ## 测试覆盖
 
-44 项测试覆盖：专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 参数/结果钉扎、真实 keyed SlotCore 所有权、标签地址与标题、归档优先的关闭生命周期、跨版本 descriptor 所有权校验、拒绝伪装标签误删、父 Agent 离线归档、持久化且有界的重试队列、存储 getter 抛错隔离、UI 异步注册失败回滚与 locale 冲突隔离、header 直接打开右侧创建页、资源失败帧、子会话/归档父会话禁止创建、包导出完整性，以及临时空状态提示。
+46 项测试覆盖：专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 参数/结果钉扎、真实 keyed SlotCore 所有权、标签地址与标题、归档优先的关闭生命周期、跨版本 descriptor 所有权校验、拒绝伪装标签误删、父 Agent 离线归档、持久化且有界的重试队列、存储 getter 抛错隔离、UI 异步注册失败回滚与 locale 冲突隔离、空白 child 的 origin/catalog/ownership、header 直接创建正常对话、资源失败帧、子会话/归档父会话禁止创建、包导出完整性，以及临时空状态提示。
 
 ## License
 

@@ -69,7 +69,7 @@ describe('client creation and close lifecycle', () => {
     let bodyRegistration: { name?: string; children?: Record<string, unknown> } | undefined
     const create = vi.fn(async () => ({ ok: true as const, value: address }))
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
-    const openTab = vi.fn()
+    const openResourceIn = vi.fn()
     const refreshProjections = vi.fn()
     const registerCloseHandler = vi.fn((_kind: string, handler: typeof closeHandler) => {
       closeHandler = handler
@@ -115,7 +115,7 @@ describe('client creation and close lifecycle', () => {
           })),
         },
       },
-      sidebarRight: { openTab, registerCloseHandler },
+      sidebarRight: { openResourceIn, registerCloseHandler },
     }
     await apply(ctx as never)
 
@@ -138,9 +138,12 @@ describe('client creation and close lifecycle', () => {
       mode: 'continuable',
     }))).toBe('Existing investigation')
     const actions = registration!.definition.inject('parent' as SessionId)
-    actions.openSideChat()
-    expect(openTab).toHaveBeenCalledWith(SIDE_CHAT_KIND, { preferNewPane: true })
-    expect(create).not.toHaveBeenCalled()
+    await actions.openSideChat()
+    expect(create).toHaveBeenCalledWith('parent', { prompt: '' })
+    expect(openResourceIn).toHaveBeenCalledWith('parent', sideTaskChatAddress(address), {
+      kind: SIDE_CHAT_KIND,
+      preferNewPane: false,
+    })
 
     const existing: SideTaskAddress = { ...address, childSessionId: 'existing' as SessionId }
 
@@ -160,6 +163,6 @@ describe('client creation and close lifecycle', () => {
       parentSessionId: 'parent',
       childSessionId: 'existing',
     }))
-    expect(create).not.toHaveBeenCalled()
+    expect(openResourceIn).toHaveBeenCalledTimes(1)
   })
 })

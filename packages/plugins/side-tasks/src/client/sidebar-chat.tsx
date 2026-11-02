@@ -23,6 +23,7 @@ import {
   SIDE_CHAT_KIND,
   SIDE_CHAT_PAGE_ADDRESS,
   sideTaskChatAddress,
+  isBlankSideTaskLabel,
   sideTaskDisplayLabel,
 } from '../shared.ts'
 import { NS } from './locales.ts'
@@ -242,7 +243,9 @@ function SideChatTitle({ useTabInfo, useSessions, t }: SideChatTitleProps) {
     return state.projectionsBySession[parsed.parentSessionId]?.values.subagentCatalog
       ?.find(entry => entry.id === parsed.childSessionId)?.label
   })
-  return label === undefined ? t('empty.title') : sideTaskDisplayLabel(label)
+  return label === undefined || isBlankSideTaskLabel(label)
+    ? t('empty.title')
+    : sideTaskDisplayLabel(label)
 }
 
 type SideChatTabProps =
@@ -315,7 +318,9 @@ export function registerSideChat(
       const label = catalog?.find(
         (entry: { id: SessionId; label?: string }) => entry.id === parsed.childSessionId,
       )?.label
-      return label === undefined ? t('empty.title') : sideTaskDisplayLabel(label)
+      return label === undefined || isBlankSideTaskLabel(label)
+        ? t('empty.title')
+        : sideTaskDisplayLabel(label)
     },
     guide: [{
       id: 'new',

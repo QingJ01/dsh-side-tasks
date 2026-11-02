@@ -54,7 +54,7 @@ describe('startSideTask', () => {
     expect(startActivation.mock.calls[0]?.[0].request.maxDepth).toBe(2)
   })
 
-  it('rejects an empty prompt before allocating a child', async () => {
+  it('rejects an empty prompt on the prompt-start path', async () => {
     const { parent, startActivation, starter } = fixture()
     await expect(startSideTask(starter, parent, '   ', new AbortController().signal)).rejects.toThrow('non-empty')
     expect(startActivation).not.toHaveBeenCalled()

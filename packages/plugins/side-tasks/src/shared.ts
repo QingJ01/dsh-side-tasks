@@ -3,6 +3,8 @@ import type { SideTaskAddress } from './types.ts'
 
 /** Durable label marker distinguishing user-created side tasks from model delegations. */
 export const SIDE_TASK_LABEL_PREFIX = 'Side task · '
+/** Durable marker for an idle side chat created without a first prompt. */
+export const SIDE_TASK_BLANK_LABEL = 'New side chat'
 
 export const SIDE_CHAT_KIND = 'sidechat'
 export const SIDE_CHAT_PAGE_ADDRESS = 'sidebar://sidechat'
@@ -30,6 +32,11 @@ export function isSideTaskLabel(label: string | undefined): label is string {
 /** Remove the internal catalog marker for display. */
 export function sideTaskDisplayLabel(label: string): string {
   return isSideTaskLabel(label) ? label.slice(SIDE_TASK_LABEL_PREFIX.length) : label
+}
+
+/** Whether a durable label names the placeholder blank side chat. */
+export function isBlankSideTaskLabel(label: string | undefined): boolean {
+  return label !== undefined && sideTaskDisplayLabel(label) === SIDE_TASK_BLANK_LABEL
 }
 
 /**

@@ -18,7 +18,12 @@ import type {
   DiscardSideTaskResult,
   SideTaskAddress,
 } from '../types.ts'
-import { parseSideTaskChatAddress, SIDE_CHAT_KIND, SIDE_CHAT_PAGE_ADDRESS } from '../shared.ts'
+import {
+  parseSideTaskChatAddress,
+  SIDE_CHAT_KIND,
+  SIDE_CHAT_PAGE_ADDRESS,
+  sideTaskChatAddress,
+} from '../shared.ts'
 import {
   browserDiscardStorage,
   enqueuePendingDiscard,
@@ -111,9 +116,28 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       id: 'side-tasks',
       order: -7,
       locale: NS,
-      inject: () => ({
-        openSideChat() {
-          scope.sidebarRight.openTab(SIDE_CHAT_KIND, { preferNewPane: true })
+      inject: (parentSessionId: SessionId) => ({
+        async openSideChat() {
+          try {
+            const result = await createSideTask(parentSessionId, '')
+            if (!result.ok) {
+              console.error(`side-tasks: create failed: ${result.error.message}`)
+              return
+            }
+            const tabs = scope.sidebarRight as unknown as {
+              openResourceIn(
+                sessionId: SessionId,
+                address: string,
+                options: { kind: string; preferNewPane: boolean },
+              ): void
+            }
+            tabs.openResourceIn(parentSessionId, sideTaskChatAddress(result.value), {
+              kind: SIDE_CHAT_KIND,
+              preferNewPane: false,
+            })
+          } catch (error: unknown) {
+            console.error(`side-tasks: open failed: ${String(error)}`)
+          }
         },
       }),
     }, SideTaskAction))
