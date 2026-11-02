@@ -22,26 +22,13 @@ function translate(key: SideTaskKey, params?: Record<string, string | number>): 
 function renderAction(overrides: Partial<SideTaskActionProps> = {}) {
   const state = {
     byId: { parent: {} },
-    projectionsBySession: {
-      parent: {
-        values: {
-          subagentCatalog: [{
-            id: 'existing' as SessionId,
-            createdAt: 1,
-            mode: 'continuable' as const,
-            label: 'Side task · Existing investigation',
-          }],
-        },
-      },
-    },
+    projectionsBySession: {},
   }
   const props = {
     sessionId: parentId,
     useSessions: (selector: (value: typeof state) => unknown) => selector(state),
     useWorkspaces: (selector: (value: { archivedSessionIds: SessionId[] }) => unknown) => selector({ archivedSessionIds: [] }),
-    refreshSideTasks: vi.fn(),
     createSideTask: vi.fn(async () => ({ ok: true as const, value: address })),
-    openSideTask: vi.fn(),
     t: translate,
     ...overrides,
   } as SideTaskActionProps
@@ -60,26 +47,24 @@ describe('SideTaskAction', () => {
     await waitFor(() => expect(props.createSideTask).toHaveBeenCalledWith('inspect failures'))
   })
 
-  it('reopens an existing child without invoking creation', () => {
-    const props = renderAction()
-    fireEvent.click(screen.getByRole('button', { name: en['action.open'] }))
-    fireEvent.click(screen.getByRole('button', { name: 'Reopen Existing investigation in the right sidebar' }))
-    expect(props.openSideTask).toHaveBeenCalledWith({
-      parentSessionId: parentId,
-      childSessionId: 'existing',
-      mode: 'continuable',
-    })
-    expect(props.createSideTask).not.toHaveBeenCalled()
-  })
-
-  it('hides discarded children from the reopen list', () => {
+  it('is not rendered for archived parent sessions', () => {
     const useWorkspaces = ((selector: (value: { archivedSessionIds: SessionId[] }) => unknown) => (
-      selector({ archivedSessionIds: ['existing' as SessionId] })
+      selector({ archivedSessionIds: [parentId] })
     )) as SideTaskActionProps['useWorkspaces']
     renderAction({ useWorkspaces })
-    fireEvent.click(screen.getByRole('button', { name: en['action.open'] }))
-    expect(screen.queryByRole('button', { name: 'Reopen Existing investigation in the right sidebar' })).toBeNull()
-    expect(screen.getByText(en['existing.empty'])).toBeTruthy()
+    expect(screen.queryByRole('button', { name: en['action.open'] })).toBeNull()
+  })
+
+  it('is not rendered on subagent child sessions', () => {
+    const useSessions = ((selector: (value: {
+      byId: Record<string, { origin?: string }>
+      projectionsBySession: Record<string, never>
+    }) => unknown) => selector({
+      byId: { parent: { origin: 'subagent' } },
+      projectionsBySession: {},
+    })) as SideTaskActionProps['useSessions']
+    renderAction({ useSessions })
+    expect(screen.queryByRole('button', { name: en['action.open'] })).toBeNull()
   })
 
   it('keeps the dialog open with an actionable error on failure', async () => {
@@ -94,6 +79,5 @@ describe('SideTaskAction', () => {
     await screen.findByRole('alert')
     expect(screen.getByRole('alert').textContent).toContain('parent offline')
     expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(props.openSideTask).not.toHaveBeenCalled()
   })
 })

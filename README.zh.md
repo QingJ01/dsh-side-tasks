@@ -6,14 +6,13 @@
 
 ## 功能
 
-- 会话顶部的**侧边聊天**按钮，同一个弹窗支持新建和关闭前恢复。
+- 会话顶部的**侧边聊天**按钮，弹窗只用于创建临时侧边聊天。
 - 右侧栏“开始”页的原生卡片，使用 Harness 同款 `IconNewChatOutlineRegular` 线性图标，点击进入首个任务创建页。
 - 注册专用 `side-task` 子智能体后端，在创建时复制父会话已完成回合的上下文。
 - 子会话为空时显示“侧边聊天是临时聊天，关闭标签后会结束并移除”。
 - 使用 `caller` 投递方式独立执行，完成后不自动向主对话注入消息。
 - 独立的 `sidechat` 资源和关闭钩子，不影响模型创建的普通子智能体标签。
 - `sideTasks/discard` 通过持久化 `side-task` provider descriptor 校验所有权，停止子会话并归档。
-- 已归档子会话从插件的恢复列表中消失。
 
 ## 环境要求
 
@@ -48,8 +47,6 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 | --- | --- |
 | 新建侧边聊天 | 创建一个 continuable 子会话，并将它的 `sidechat` 资源打开到右侧栏。 |
 | 关闭对应标签 | 调用 `sideTasks/discard`，停止并归档该子会话，不创建普通会话。 |
-| 关闭前恢复 | 按原来的父子地址打开同一个子会话，不再次调用创建 Remote。 |
-| 关闭后恢复 | 已归档子会话会从插件的恢复列表排除。 |
 | 仅收起整个右侧栏 | 标签仍然保留，不触发归档。 |
 | 任务完成 | 结果留在子会话记录中，不自动唤醒父会话模型。 |
 
@@ -79,7 +76,7 @@ pnpm --filter dsh-side-tasks pack --pack-destination dist
 
 ## 测试覆盖
 
-28 项测试覆盖：专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 挂载、真实 SlotCore 所有权、标签地址与标题、创建与恢复、归档优先的关闭生命周期、descriptor 所有权校验、拒绝伪装标签误删、Host 缺失时客户端不阻塞启动、归档后隐藏恢复项、子会话/归档父会话禁止创建，以及临时空状态提示。
+32 项测试覆盖：专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 挂载、真实 SlotCore 所有权、标签地址与标题、归档优先的关闭生命周期、descriptor 所有权校验、拒绝伪装标签误删、UI 服务 pending/同步失败不阻塞启动、子会话/归档父会话禁止创建、包导出完整性，以及临时空状态提示。
 
 ## License
 

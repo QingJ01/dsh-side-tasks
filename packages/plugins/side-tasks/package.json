@@ -29,11 +29,14 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
     "cordis.patch.yml",
     "lib/index.js",
     "lib/client.js",
     "lib/client.js.map",
     "lib/types/**/*.d.ts",
+    "lib/types/**/*.js",
     "lib/typert.host.js",
     "lib/typert.host.d.ts",
     "lib/typert.remote-client.js",
@@ -41,9 +44,7 @@
   ],
   "scripts": {
     "build": "node scripts/prebuild.mjs && tsc -b tsconfig.host.json tsconfig.client.json && tsdown && node scripts/postbuild.mjs",
-    "bundle": "tsdown && node scripts/postbuild.mjs",
-    "watch": "tsdown --watch",
-    "prepare": "pnpm run build"
+    "prepack": "pnpm run build"
   },
   "dsh": {
     "bundle": {

@@ -1,23 +1,19 @@
-import { useEffect, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { useState, type CSSProperties, type KeyboardEvent } from 'react'
 import {
   Button,
   IconBranchOutlineRegular,
-  IconChevronRightOutlineRegular,
   Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import type { SessionListState, SessionProjectionMap } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SideTaskAddress } from '../types.ts'
-import { isSideTaskLabel, sideTaskDisplayLabel } from '../shared.ts'
 import { NS } from './locales.ts'
 
 /** Actions supplied by the client plugin, keeping transport out of React. */
 export interface SideTaskActionInjected {
-  readonly refreshSideTasks: () => void
   readonly createSideTask: (prompt: string) => Promise<RemoteResult<SideTaskAddress>>
-  readonly openSideTask: (address: SideTaskAddress) => void
 }
 
 export type SideTaskActionProps =
@@ -40,36 +36,12 @@ const textareaStyle: CSSProperties = {
   lineHeight: 1.55,
 }
 
-const listStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 6,
-  marginTop: 12,
-}
-
-const existingButtonStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 12,
-  width: '100%',
-  padding: '10px 12px',
-  border: '1px solid var(--dsw-alias-border-primary, #8886)',
-  borderRadius: 8,
-  color: 'inherit',
-  background: 'transparent',
-  textAlign: 'left',
-  cursor: 'pointer',
-}
-
-/** Session-header create/reopen dialog. */
+/** Session-header create dialog. */
 export function SideTaskAction({
   sessionId,
   useSessions,
   useWorkspaces,
-  refreshSideTasks,
   createSideTask,
-  openSideTask,
   t,
 }: SideTaskActionProps) {
   const [open, setOpen] = useState(false)
@@ -77,19 +49,9 @@ export function SideTaskAction({
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | undefined>()
   const isChild = useSessions((state: SessionListState) => state.byId[sessionId]?.origin === 'subagent')
-  const catalog: SessionProjectionMap['subagentCatalog'] | undefined = useSessions(
-    (state: SessionListState) => state.projectionsBySession[sessionId]?.values.subagentCatalog,
-  )
   const archivedSessionIds = useWorkspaces(
     (state: { archivedSessionIds: readonly SessionId[] }) => state.archivedSessionIds,
   )
-  const sideTasks = (catalog ?? []).filter(entry => entry.mode === 'continuable'
-    && isSideTaskLabel(entry.label)
-    && !archivedSessionIds.includes(entry.id))
-
-  useEffect(() => {
-    if (open) refreshSideTasks()
-  }, [open, sessionId])
 
   if (isChild || archivedSessionIds.includes(sessionId)) return null
 
@@ -168,34 +130,6 @@ export function SideTaskAction({
           onKeyDown={onPromptKeyDown}
         />
         {error !== undefined && <p role="alert">{error}</p>}
-        <h3>{t('existing')}</h3>
-        {sideTasks.length === 0 ? <p>{t('existing.empty')}</p> : (
-          <div style={listStyle}>
-            {sideTasks.map(entry => {
-              const label = sideTaskDisplayLabel(entry.label ?? '')
-              const address: SideTaskAddress = {
-                parentSessionId: sessionId,
-                childSessionId: entry.id,
-                mode: 'continuable',
-              }
-              return (
-                <button
-                  type="button"
-                  key={entry.id}
-                  style={existingButtonStyle}
-                  aria-label={t('open.aria', { label })}
-                  onClick={() => {
-                    openSideTask(address)
-                    setOpen(false)
-                  }}
-                >
-                  <span>{label}</span>
-                  <IconChevronRightOutlineRegular size={14} />
-                </button>
-              )
-            })}
-          </div>
-        )}
       </Modal>
     </>
   )

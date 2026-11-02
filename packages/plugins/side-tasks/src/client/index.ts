@@ -51,8 +51,10 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     console.error(`side-tasks: Remote mount failed: ${String(error)}`)
     return async () => {}
   }
-  const ui = ctx.inject(['resources', 'sidebarRightTabs', 'remote.sideTasks'], (scope) => {
-    const remote = (scope.remote as SideTaskRemote).sideTasks
+  let ui: ReturnType<typeof ctx.inject>
+  try {
+    ui = ctx.inject(['resources', 'sidebarRightTabs', 'remote.sideTasks'], (scope) => {
+      const remote = (scope.remote as SideTaskRemote).sideTasks
     // Host and browser faces merge `Context.sessions` differently in one
     // standalone TypeScript project; the client injection owns ISessions.
     const sessions = scope.sessions as unknown as ISessions
@@ -94,9 +96,6 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       order: 12,
       locale: NS,
       inject: (parentSessionId: SessionId) => ({
-        refreshSideTasks() {
-          void sessions.refreshProjections(parentSessionId)
-        },
         async createSideTask(prompt: string) {
           const result = await createSideTask(parentSessionId, prompt)
           if (result.ok) {
@@ -107,22 +106,19 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
           }
           return result
         },
-        openSideTask(address: SideTaskAddress) {
-          scope.sidebarRight.openResource(sideTaskChatAddress(address), {
-            kind: SIDE_CHAT_KIND,
-            preferNewPane: true,
-          })
-        },
       }),
     }, SideTaskAction))
-  })
-  try {
-    await ui
-  } catch (error) {
-    await ui.dispose()
-    await unmountRemote()
-    throw error
+    })
+  } catch (error: unknown) {
+    await unmountRemote().catch(() => undefined)
+    console.error(`side-tasks: UI registration failed: ${String(error)}`)
+    return async () => {}
   }
+  // Do not await the UI fiber: a missing optional UI service must never keep
+  // the whole Web boot pending. Its failure is isolated to this feature.
+  void Promise.resolve(ui).catch((error: unknown) => {
+    console.error(`side-tasks: UI registration failed: ${String(error)}`)
+  })
   return async () => {
     await ui.dispose()
     await unmountRemote()

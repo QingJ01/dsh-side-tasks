@@ -24,11 +24,32 @@ describe('client creation and close lifecycle', () => {
     expect(injectChild).not.toHaveBeenCalled()
   })
 
+  it('does not hold the plugin activation open while UI services are pending', async () => {
+    const unmountRemote = vi.fn(async () => {})
+    const ctx = {
+      effect: (callback: () => unknown) => callback(),
+      locale: { register: vi.fn() },
+      remote: { $mount: vi.fn(async () => unmountRemote) },
+      inject: () => ({ then: () => {}, dispose: vi.fn(async () => {}) }),
+    }
+    await expect(apply(ctx as never)).resolves.toEqual(expect.any(Function))
+  })
+
+  it('unmounts the Remote if UI registration throws synchronously', async () => {
+    const unmountRemote = vi.fn(async () => {})
+    const ctx = {
+      effect: (callback: () => unknown) => callback(),
+      locale: { register: vi.fn() },
+      remote: { $mount: vi.fn(async () => unmountRemote) },
+      inject: () => { throw new Error('slot conflict') },
+    }
+    await expect(apply(ctx as never)).resolves.toEqual(expect.any(Function))
+    expect(unmountRemote).toHaveBeenCalledOnce()
+  })
+
   it('opens children and discards the same identity on tab close without another create', async () => {
     let registration: { definition: { inject: (id: SessionId) => {
       createSideTask: (prompt: string) => Promise<unknown>
-      openSideTask: (address: SideTaskAddress) => void
-      refreshSideTasks: () => void
     } } } | undefined
     let closeHandler: ((parent: SessionId, tab: { id: string; contentId: string }) => void) | undefined
     let bodyRegistration: { name?: string; children?: Record<string, unknown> } | undefined
@@ -109,9 +130,7 @@ describe('client creation and close lifecycle', () => {
     expect(openResource.mock.calls[0]?.[1]).toEqual({ kind: SIDE_CHAT_KIND, preferNewPane: true })
 
     const existing: SideTaskAddress = { ...address, childSessionId: 'existing' as SessionId }
-    actions.openSideTask(existing)
-    expect(openResource).toHaveBeenCalledTimes(2)
-    expect(create).toHaveBeenCalledTimes(1)
+    expect(openResource).toHaveBeenCalledTimes(1)
 
     closeHandler!('parent' as SessionId, { id: 'start-page', contentId: SIDE_CHAT_PAGE_ADDRESS })
     expect(discard).not.toHaveBeenCalled()
@@ -127,5 +146,6 @@ describe('client creation and close lifecycle', () => {
     })
     await vi.waitFor(() => expect(discard).toHaveBeenCalledWith('parent', { childSessionId: 'existing' }))
     expect(create).toHaveBeenCalledTimes(1)
+    expect(openResource).toHaveBeenCalledTimes(1)
   })
 })

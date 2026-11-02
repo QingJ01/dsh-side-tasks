@@ -9,6 +9,13 @@ describe('Typert Remote artifacts', () => {
     expect(Object.keys(TYPERT_REMOTE.methods)).toEqual(['sideTasks/create', 'sideTasks/discard'])
   })
 
+  it('keeps the artifact endpoint set in parity with source decorators', () => {
+    const source = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
+    const decorators = [...source.matchAll(/@Remote\('([^']+)'\)/g)].map(match => match[1]).sort()
+    const methods = TYPERT.invocations.map(invocation => invocation.method).sort()
+    expect(methods).toEqual(decorators)
+  })
+
   it('wires the Gateway-injected cancellation signal on both endpoints', () => {
     for (const id of ['dsh-side-tasks#sideTasks/create', 'dsh-side-tasks#sideTasks/discard']) {
       const invocation = TYPERT.invocations.find(item => item.id === id)

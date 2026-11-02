@@ -12,9 +12,8 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 - A centered temporary-chat notice while the child is empty.
 - Independent execution with `caller` delivery: completion does not inject a message into the parent conversation.
 - A dedicated `sidechat` resource and close handler; model-delegated subagent tabs are unaffected.
-- `sideTasks/discard` authenticates the persisted `side-task` provider descriptor, drains the child, and archives it with activity stopped.
+- `sideTasks/discard` authenticates the persisted `side-task` provider descriptor, archives it with active work stopped, then best-effort drains the resident child.
 - Deferred client injection keeps DSH booting if the Host Remote is unavailable.
-- Archived children disappear from the plugin's reopen list.
 
 ## Requirements
 
@@ -48,9 +47,7 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 | Action | Result |
 | --- | --- |
 | Create a side chat | Allocates one continuable subagent child and opens its `sidechat` resource on the right. |
-| Close the corresponding tab | Calls `sideTasks/discard`, drains the child, and archives it. No ordinary session is created. |
-| Reopen before closing | Retains the same child address; no creation RPC and no ordinary session. |
-| Reopen after closing | Archived children are excluded from the plugin's reopen list. |
+| Close the corresponding tab | Calls `sideTasks/discard`, archives the child with work stopped, and drains it best-effort. No ordinary session is created. |
 | Merely collapse the right sidebar | Does not close the tab or trigger archival. |
 | Task completes | Updates the child transcript without waking the parent model. |
 
