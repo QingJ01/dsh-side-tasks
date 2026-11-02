@@ -17,16 +17,16 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 
 ## Requirements
 
-- DeepSeek Harness `>=0.2.1-rc.5 <0.3.0`
+- DeepSeek Harness `>=0.1.0-rc.5 <0.3.0`
 - Node.js `>=24.9.0` for development
 - A Web or Desktop profile with the standard `fork` subagent provider, Workspace registry, and `dsh-client-ui-subagent`
 
 ## Install
 
-Download `dsh-side-tasks-0.2.1.tgz` from the [latest release](https://github.com/QingJ01/dsh-side-tasks/releases/latest), then install it into your profile:
+Download `dsh-side-tasks-0.1.0.tgz` from the [latest release](https://github.com/QingJ01/dsh-side-tasks/releases/latest), then install it into your profile:
 
 ```sh
-dsh plugin --profile desktop add ./dsh-side-tasks-0.2.1.tgz
+dsh plugin --profile desktop add ./dsh-side-tasks-0.1.0.tgz
 ```
 
 Use `--profile web` for a Web profile. Restart Harness after installation, then open a conversation and select **Side chat** in the header.

@@ -17,16 +17,16 @@
 
 ## 环境要求
 
-- DeepSeek Harness `>=0.2.1-rc.5 <0.3.0`
+- DeepSeek Harness `>=0.1.0-rc.5 <0.3.0`
 - 开发时需要 Node.js `>=24.9.0`
 - profile 中具有标准 `fork` 子智能体提供方、Workspace registry 和 `dsh-client-ui-subagent`（官方 Web/Desktop 组合默认具备）
 
 ## 安装
 
-从 [最新 Release](https://github.com/QingJ01/dsh-side-tasks/releases/latest) 下载 `dsh-side-tasks-0.2.1.tgz`，然后安装到 profile：
+从 [最新 Release](https://github.com/QingJ01/dsh-side-tasks/releases/latest) 下载 `dsh-side-tasks-0.1.0.tgz`，然后安装到 profile：
 
 ```sh
-dsh plugin --profile desktop add ./dsh-side-tasks-0.2.1.tgz
+dsh plugin --profile desktop add ./dsh-side-tasks-0.1.0.tgz
 ```
 
 Web profile 请改用 `--profile web`。安装后重启 Harness，打开一个会话，点击顶部的**侧边聊天**。
