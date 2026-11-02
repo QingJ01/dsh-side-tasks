@@ -12,6 +12,18 @@ interface ModelResolver {
   resolveCallConfig(selection: SideChatModel, signal: AbortSignal): Promise<SideChatModel>
   resolveModelInfo(provider: string, model: string, signal: AbortSignal): Promise<unknown>
 }
+/** Latest durable selection the child itself recorded. */
+function latestSelection(agent: Agent): SideChatModel | undefined {
+  const events = agent.session.snapshotEvents().slice(agent.session.inheritedEventCount)
+  return events.findLast(event => event.type === 'model/selection')?.data as SideChatModel | undefined
+}
+
+function sameSelection(left: SideChatModel, right: SideChatModel): boolean {
+  return left.provider === right.provider
+    && left.model === right.model
+    && (left.reasoningEffort ?? undefined) === (right.reasoningEffort ?? undefined)
+}
+
 interface Commands {
   execute(agent: Agent, line: string, attachments: readonly never[], signal: AbortSignal): Promise<{
     result: { kind: string; text?: string }
@@ -168,7 +180,12 @@ export class SideChatSettings {
       try {
         if (this.ctx.workspaceRegistry.archivedSessionIds.includes(agent.id)) throw new Error('The side chat is archived.')
         if (selected !== undefined) {
-          agent.session.append('model/selection', selected as never)
+          // Re-selecting the current model must not append a duplicate
+          // selection event on every menu click.
+          const previous = latestSelection(agent)
+          if (previous === undefined || !sameSelection(previous, selected)) {
+            agent.session.append('model/selection', selected as never)
+          }
           this.restore(agent)
           const ref = this.selections.get(agent)
           if (ref === undefined) throw new Error('Could not install side-chat model selection.')

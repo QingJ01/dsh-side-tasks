@@ -31,9 +31,11 @@ export interface SideTaskQuery {
 }
 
 /**
- * Create a continuable child with the parent's completed-turn context.
+ * Create a continuable child from one prompt.
  * Caller delivery keeps settlement out of the parent's conversation; the
  * durable child remains in the parent's subagent catalog for later reopening.
+ * The provider seeds no parent events: inherited background is prompt context,
+ * so this child also keeps a clean transcript and its own usage.
  */
 export async function startSideTask(
   starter: SideTaskStarter,

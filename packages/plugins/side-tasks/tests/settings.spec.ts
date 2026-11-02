@@ -108,6 +108,42 @@ describe('child-only native composer settings', () => {
     expect(child.ctx.on).toHaveBeenCalledTimes(6)
   })
 
+  it('does not append a duplicate selection when the same model is chosen again', async () => {
+    const { settings, child } = fixture()
+    const request = { parentSessionId: parentId, childSessionId: childId, kind: 'model' as const,
+      selection: { provider: 'test', model: 'old' } }
+    await settings.configure(request, new AbortController().signal)
+    expect(child.session.append.mock.calls.filter(([type]) => type === 'model/selection')).toHaveLength(0)
+    expect(child.options).toMatchObject({ provider: 'test', model: 'old' })
+  })
+
+  it('registers inherited background as prompt context for an owned child', async () => {
+    const { settings, ctx, child, events } = (() => {
+      const f = fixture()
+      const withTurns = [
+        { type: 'subagent/descriptor', data: { version: 3, mode: 'continuable', provider: 'side-task' } },
+        { type: 'turn/start', seq: 0, data: {} },
+        { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: '暗号是 ORCA-77' }] } },
+        { type: 'assistant/message', data: { content: [{ type: 'text', text: '收到' }] } },
+        { type: 'turn/end', data: {} },
+      ]
+      f.ctx.agents.get = (id: string) => id === parentId
+        ? { id: parentId, session: { snapshotEvents: () => withTurns, append: vi.fn() } }
+        : f.child
+      return { ...f, events: withTurns }
+    })()
+    const context = vi.fn(() => vi.fn())
+    const withPrompt = { ...child, ctx: { on: vi.fn(() => vi.fn()), get: (name: string) => name === 'systemPrompt'
+      ? { getContextOrder: () => 120, context } : undefined } }
+    ctx.agents.get = (id: string) => id === parentId
+      ? { id: parentId, session: { snapshotEvents: () => events, append: vi.fn() } }
+      : withPrompt
+    ;(settings as never as { attach(agent: unknown): Promise<undefined> | undefined }).attach(withPrompt)
+    await vi.waitFor(() => { expect(context).toHaveBeenCalledOnce() })
+    expect(context.mock.calls[0]![0]).toMatchObject({ name: 'side-task:parent-context' })
+    expect((context.mock.calls[0]![0] as { text: () => string }).text()).toContain('ORCA-77')
+  })
+
   it('restores the durable user model on a later manager-created Agent', () => {
     const { settings, child, events } = fixture()
     events.push({ type: 'model/selection', data: next })

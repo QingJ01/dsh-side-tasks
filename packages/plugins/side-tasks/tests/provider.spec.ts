@@ -18,20 +18,16 @@ describe('SideTaskProvider', () => {
     expect(SIDE_TASK_PROVIDER).not.toBe('fork')
   })
 
-  it('seeds through the latest completed turn only', async () => {
+  it('never seeds parent events into a prompt-started child', async () => {
     const events = [
-      { type: 'turn/end', seq: 1 },
-      { type: 'message', seq: 2 },
-      { type: 'turn/end', seq: 3 },
-      { type: 'user/message', seq: 4 },
+      { type: 'turn/start', seq: 0 },
+      { type: 'user/message', seq: 1 },
+      { type: 'turn/end', seq: 2 },
     ] as never
     const provider = new SideTaskProvider()
-    const spec = await provider.prepareContinuable(requestFor(events))
-    expect(spec.seed).toEqual(events.slice(0, 4))
-  })
-
-  it('starts without a seed before the first completed turn', async () => {
-    const provider = new SideTaskProvider()
+    // A seeded prefix would surface the parent conversation in the child's
+    // transcript and count its usage; inherited background is prompt context.
+    expect(await provider.prepareContinuable(requestFor(events))).toEqual({})
     expect(await provider.prepareContinuable(requestFor([]))).toEqual({})
   })
 })
