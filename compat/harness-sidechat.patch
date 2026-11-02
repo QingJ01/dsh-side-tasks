@@ -2306,6 +2306,32 @@ index e74cd9dc..bb97190e 100644
    /** Format classification supplied by the Host list. */
    formatStatus?: SessionSummary['formatStatus']
    cwd?: string
+diff --git a/packages/api/session-controller/src/client/sessions/manager.ts b/packages/api/session-controller/src/client/sessions/manager.ts
+index b8bec9be..30327239 100644
+--- a/packages/api/session-controller/src/client/sessions/manager.ts
++++ b/packages/api/session-controller/src/client/sessions/manager.ts
+@@ -700,15 +700,16 @@ export class SessionManager {
+    * @param sessionId - removed Session identity.
+    */
+   handleSessionRemoved(sessionId: SessionId): void {
+-    const durableSubagent = this.subagentAddress(sessionId) !== undefined
+-      || this.summaries.some(summary => summary.sessionId === sessionId && summary.origin === 'subagent')
+-    this.recordMutation(durableSubagent
++    const durableChild = this.subagentAddress(sessionId) !== undefined
++      || this.summaries.some(summary => summary.sessionId === sessionId
++        && (summary.origin === 'subagent' || summary.origin === 'sidechat'))
++    this.recordMutation(durableChild
+       ? { kind: 'status', sessionId, running: false, agentAvailable: false }
+       : { kind: 'remove', sessionId })
+-    if (durableSubagent) this.sessions.get(sessionId)?.handleRunning(false)
++    if (durableChild) this.sessions.get(sessionId)?.handleRunning(false)
+     else this.sessions.get(sessionId)?.handleRemoved()
+     const catalog = this.projectionStores.get(sessionId)?.values().subagentCatalog
+-    if (!durableSubagent && (catalog === undefined || catalog.length === 0)) {
++    if (!durableChild && (catalog === undefined || catalog.length === 0)) {
+       this.projectionStores.delete(sessionId)
+     }
+     this.pruneEngagement(sessionId, this.retainedIds(this.summaries))
 diff --git a/packages/api/session-controller/src/client/sessions/service.ts b/packages/api/session-controller/src/client/sessions/service.ts
 index 8511b882..f1023cd6 100644
 --- a/packages/api/session-controller/src/client/sessions/service.ts
@@ -2419,6 +2445,55 @@ index 40dceeef..f00a80f1 100644
    it('rejects a resume that subagent routing adopts before publication', async () => {
      const child = await harness()
      const childMeta = header('resume-child-race')
+diff --git a/packages/api/session-controller/tests/manager.client.spec.ts b/packages/api/session-controller/tests/manager.client.spec.ts
+index bcf4a033..8da9be75 100644
+--- a/packages/api/session-controller/tests/manager.client.spec.ts
++++ b/packages/api/session-controller/tests/manager.client.spec.ts
+@@ -33,7 +33,7 @@ type SummaryOver = Partial<{
+   blank: boolean
+   cwd: string
+   parentSessionId: SessionId
+-  origin: 'subagent'
++  origin: 'subagent' | 'sidechat'
+ }>
+
+ function summary(sessionId: SessionId, over: SummaryOver = {}) {
+@@ -50,6 +50,35 @@ function makeManager(
+ }
+
+ describe('SessionManager instances', () => {
++  it('keeps a persisted sidechat addressable after its creation writer closes', ({ mock, remote }) => {
++    const manager = makeManager(mock, remote)
++    onTestFinished(() => manager.dispose())
++    manager.handleSessionAdded(summary(S2, { origin: 'sidechat', blank: true }))
++    manager.handleSessionRemoved(S2)
++
++    expect(manager.resolveTarget(S2)).toBe(S2)
++    expect(manager.subagentAddress(S2)).toBeUndefined()
++    expect(manager.getListSnapshot().items).toMatchObject([
++      { sessionId: S2, origin: 'sidechat', blank: true, running: false },
++    ])
++    expect(manager.get(S2).getSnapshot().removed).toBe(false)
++    expect(remote.session.list).not.toHaveBeenCalled()
++  })
++
++  it('keeps a retained sidechat usable after a settings writer closes', ({ mock, remote }) => {
++    const manager = makeManager(mock, remote)
++    onTestFinished(() => manager.dispose())
++    manager.handleSessionAdded(summary(S2, { origin: 'sidechat', running: true }))
++    const session = manager.get(S2)
++    manager.handleSessionRemoved(S2)
++
++    expect(session.getSnapshot().removed).toBe(false)
++    expect(manager.getListSnapshot().items).toMatchObject([
++      { sessionId: S2, origin: 'sidechat', running: false },
++    ])
++    expect(manager.subagentAddress(S2)).toBeUndefined()
++  })
++
+   it.for(['event', 'list'] as const)(
+     'forgets running when an unretained identity disappears through a %s',
+     async (source, { mock, remote }) => {
 diff --git a/packages/api/session-controller/tests/session-fork.host.spec.ts b/packages/api/session-controller/tests/session-fork.host.spec.ts
 index e6ba8321..07fa7d0a 100644
 --- a/packages/api/session-controller/tests/session-fork.host.spec.ts
