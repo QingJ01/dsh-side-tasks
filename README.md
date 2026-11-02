@@ -51,6 +51,7 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 | Close the corresponding tab | Calls `sideTasks/discard`, archives the child with work stopped, and drains it best-effort. No ordinary session is created. |
 | Merely collapse the right sidebar | Does not close the tab or trigger archival. |
 | Click **Side chat** again | Expands and focuses the existing tab without creating another child; an already visible sidebar stays open. |
+| Reload with an unsent draft | The native Session body remains mounted even for an empty chat, retaining Harness's browser-local draft persistence. |
 | Task completes | Updates the child transcript. The current Harness cold-resume path may also notify and wake the parent. |
 
 **Deletion semantics:** Harness exposes durable archival, not physical deletion of session logs through its public plugin API. This plugin uses that supported lifecycle and never edits session files directly. The UI describes this as ending and removing the temporary chat, not erasing its files.

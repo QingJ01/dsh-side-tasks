@@ -164,7 +164,12 @@ export function hasOwnSideChatTurn(window: SessionEventWindow, contextThrough: n
   ))
 }
 
-function EmptyChatView() { return <div style={{ flex: '1 0 auto' }} /> }
+export function EmptyChatView(props: ConversationViewsProps) {
+  return <div style={{ flex: '1 0 auto' }}>
+    {/* The native Session body owns draft persistence, even before the first send. */}
+    <div hidden><FixedChatConversationView {...props} /></div>
+  </div>
+}
 
 type ConversationSlotPanelProps =
   PropsRuntime<typeof SIDE_CHAT_SLOT> & PropsRenderFactories & PropsLocale<typeof NS> & {

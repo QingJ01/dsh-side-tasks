@@ -3,7 +3,7 @@ import { StrictMode } from 'react'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { SideChatEmptyState, SideChatStartPage, hasOwnSideChatTurn } from '../src/client/sidebar-chat.tsx'
+import { EmptyChatView, SideChatEmptyState, SideChatStartPage, hasOwnSideChatTurn } from '../src/client/sidebar-chat.tsx'
 import { SideChatPreparations } from '../src/client/preparation.ts'
 import { en, type SideTaskKey } from '../src/client/locales.ts'
 
@@ -12,6 +12,13 @@ const address = { parentSessionId: 'parent' as SessionId, childSessionId: 'child
 afterEach(cleanup)
 
 describe('native side chat preparation', () => {
+  it('keeps the native draft-persistence owner mounted while hiding an empty transcript', () => {
+    const renderSlot = vi.fn(() => <div data-native-session />)
+    const { container } = render(<EmptyChatView {...{ renderSlot } as never} />)
+    expect(renderSlot).toHaveBeenCalledWith('conversation.session', { view: 'chat' })
+    expect(container.querySelector('[hidden] [data-native-session]')).not.toBeNull()
+  })
+
   it('keeps inherited turns behind the empty notice until the child starts its own turn', () => {
     const window = { entries: [{ type: 'event', event: { type: 'turn/start', seq: 3 } }], hasMore: false } as never
     expect(hasOwnSideChatTurn(window, 10)).toBe(false)
