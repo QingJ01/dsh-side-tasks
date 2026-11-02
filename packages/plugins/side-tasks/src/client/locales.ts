@@ -18,6 +18,7 @@ export const zh = {
   'open.aria': '在右侧栏重新打开 {label}',
   'empty.title': '侧边聊天',
   'empty.description': '侧边聊天是临时聊天，关闭标签后会结束并移除。',
+  'guide.description': '继承当前会话上下文，创建临时侧边聊天',
 } as const
 
 export type SideTaskKey = keyof typeof zh
@@ -40,4 +41,5 @@ export const en: Record<SideTaskKey, string> = {
   'open.aria': 'Reopen {label} in the right sidebar',
   'empty.title': 'Side chat',
   'empty.description': 'Side chat is temporary. Closing its tab ends and removes it.',
+  'guide.description': 'Start a temporary side chat with this session’s context',
 }

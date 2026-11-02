@@ -7,6 +7,7 @@
 ## 功能
 
 - 会话顶部的**侧边聊天**按钮，同一个弹窗支持新建和关闭前恢复。
+- 右侧栏“开始”页的原生卡片，使用 Harness 同款 `IconNewChatOutlineRegular` 线性图标，点击进入首个任务创建页。
 - 使用 Harness 标准 `fork` 子智能体后端继承上下文。
 - 子会话为空时显示“侧边聊天是临时聊天，关闭标签后会结束并移除”。
 - 使用 `caller` 投递方式独立执行，完成后不自动向主对话注入消息。
@@ -22,10 +23,10 @@
 
 ## 安装
 
-从 [最新 Release](https://github.com/QingJ01/dsh-side-tasks/releases/latest) 下载 `dsh-side-tasks-0.2.0.tgz`，然后安装到 profile：
+从 [最新 Release](https://github.com/QingJ01/dsh-side-tasks/releases/latest) 下载 `dsh-side-tasks-0.2.1.tgz`，然后安装到 profile：
 
 ```sh
-dsh plugin --profile desktop add ./dsh-side-tasks-0.2.0.tgz
+dsh plugin --profile desktop add ./dsh-side-tasks-0.2.1.tgz
 ```
 
 Web profile 请改用 `--profile web`。安装后重启 Harness，打开一个会话，点击顶部的**侧边聊天**。
@@ -75,7 +76,7 @@ pnpm --filter dsh-side-tasks pack --pack-destination dist
 
 ## 测试覆盖
 
-17 项测试覆盖：上下文 fork、caller 投递、空任务与取消、Remote 严格校验、标签地址、创建与恢复、关闭时停止并归档、拒绝误删普通子智能体、归档后隐藏恢复项，以及临时空状态提示。
+18 项测试覆盖：上下文 fork、caller 投递、空任务与取消、Remote 严格校验、标签地址、创建与恢复、关闭时停止并归档、拒绝误删普通子智能体、归档后隐藏恢复项，以及临时空状态提示。
 
 ## License
 

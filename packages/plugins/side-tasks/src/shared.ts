@@ -5,6 +5,7 @@ import type { SideTaskAddress } from './types.ts'
 export const SIDE_TASK_LABEL_PREFIX = 'Side task · '
 
 export const SIDE_CHAT_KIND = 'sidechat'
+export const SIDE_CHAT_PAGE_ADDRESS = 'sidebar://sidechat'
 const SIDEBAR_CHAT_ADDRESS = 'dsh-resource://sidechat/session/'
 const MAX_LABEL_LENGTH = 96
 

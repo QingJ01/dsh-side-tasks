@@ -1,12 +1,15 @@
 /** Right-sidebar adapter for temporary side-chat sessions. */
+import { useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ISessions, SessionListState, SessionReference, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-subagent/client'
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
 import type { ConversationSnapshot, ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { SidebarRightTabDefinition } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import { IconNewChatOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { SidebarRightTabDefinition, SidebarRightTabInfo } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
+import { Button, IconNewChatOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   PropsLocale,
   PropsRenderFactories,
@@ -15,7 +18,13 @@ import type {
   TranslateNS,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SideTaskAddress } from '../types.ts'
-import { parseSideTaskChatAddress, SIDE_CHAT_KIND, sideTaskDisplayLabel } from '../shared.ts'
+import {
+  parseSideTaskChatAddress,
+  SIDE_CHAT_KIND,
+  SIDE_CHAT_PAGE_ADDRESS,
+  sideTaskChatAddress,
+  sideTaskDisplayLabel,
+} from '../shared.ts'
 import { NS } from './locales.ts'
 
 const SIDEBAR_CHAT_ID = 'dsh-side-tasks'
@@ -114,10 +123,78 @@ function ConversationSlotPanel({
   )
 }
 
-type SideChatTabProps = PropsRuntime<'sidebar.right.pane.tab'> & PropsRenderSlots<'sidebar.chat.conversation'>
+type CreateSideTask = (parentSessionId: SessionId, prompt: string) => Promise<RemoteResult<SideTaskAddress>>
 
-function SideChatTab({ useResource, useTabInfo, SessionProvider, renderSlot }: SideChatTabProps) {
-  const { tab } = useTabInfo()
+interface SideChatStartPageProps {
+  readonly parentSessionId: SessionId
+  readonly createSideTask: CreateSideTask
+  readonly onCreated: (address: SideTaskAddress) => void
+  readonly t: TranslateNS<typeof NS>
+}
+
+/** Guide destination with the same temporary notice and a first-task composer. */
+export function SideChatStartPage({ parentSessionId, createSideTask, onCreated, t }: SideChatStartPageProps) {
+  const [draft, setDraft] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | undefined>()
+  const create = async (): Promise<void> => {
+    const prompt = draft.trim()
+    if (prompt === '') {
+      setError(t('prompt.required'))
+      return
+    }
+    setPending(true)
+    setError(undefined)
+    try {
+      const result = await createSideTask(parentSessionId, prompt)
+      if (!result.ok) {
+        setError(t('create.failed', { message: result.error.message }))
+        return
+      }
+      onCreated(result.value)
+    } catch (cause: unknown) {
+      setError(t('create.failed', { message: cause instanceof Error ? cause.message : String(cause) }))
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }} data-side-chat-start="">
+      <SideChatEmptyState t={t} />
+      <div style={{
+        position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+        width: 'min(560px, calc(100% - 48px))', display: 'flex', flexDirection: 'column', gap: 10,
+      }}>
+        <textarea
+          aria-label={t('prompt.label')}
+          placeholder={t('prompt.placeholder')}
+          value={draft}
+          disabled={pending}
+          onChange={event => { setDraft(event.target.value); setError(undefined) }}
+          style={{
+            boxSizing: 'border-box', width: '100%', minHeight: 88, resize: 'vertical', padding: 12,
+            border: '1px solid var(--dsw-alias-border-primary, #8886)', borderRadius: 12,
+            color: 'var(--dsw-alias-text-primary, inherit)', background: 'var(--dsw-alias-bg-primary, transparent)',
+            font: 'inherit', lineHeight: 1.5,
+          }}
+        />
+        {error !== undefined && <p role="alert">{error}</p>}
+        <Button variant="primary" disabled={pending} onClick={() => { void create() }}>
+          {pending ? t('create.pending') : t('create')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+type SideChatTabProps =
+  PropsRuntime<'sidebar.right.pane.tab'> & PropsRenderSlots<'sidebar.chat.conversation'> & PropsLocale<typeof NS>
+
+type SideChatResourceTabProps = Omit<SideChatTabProps, 'useTabInfo'> & {
+  readonly tab: SidebarRightTabInfo['tab']
+}
+
+function SideChatResourceTab({ tab, useResource, SessionProvider, renderSlot }: SideChatResourceTabProps) {
   const resource = useResource<'sidechat'>(tab.contentId)
   return (
     <div style={{ display: 'flex', position: 'relative', width: '100%', height: '100%', minWidth: 0, minHeight: 0 }} data-side-chat="">
@@ -130,8 +207,26 @@ function SideChatTab({ useResource, useTabInfo, SessionProvider, renderSlot }: S
   )
 }
 
-/** Register the independent resource, tab body, and temporary empty state. */
-export function registerSideChat(ctx: Context, t: TranslateNS<typeof NS>): void {
+function sideChatTab(createSideTask: CreateSideTask) {
+  return function SideChatTab(props: SideChatTabProps) {
+    const { useTabInfo, ...rest } = props
+    const { tab } = useTabInfo()
+    if (tab.contentId === SIDE_CHAT_PAGE_ADDRESS) {
+      return (
+        <SideChatStartPage
+          parentSessionId={props.sessionId}
+          createSideTask={createSideTask}
+          onCreated={(address) => { tab.actions.openResource(sideTaskChatAddress(address), { replaceTab: true }) }}
+          t={props.t}
+        />
+      )
+    }
+    return <SideChatResourceTab {...rest} tab={tab} />
+  }
+}
+
+/** Register the independent resource, tab body, guide entry, and temporary empty state. */
+export function registerSideChat(ctx: Context, t: TranslateNS<typeof NS>, createSideTask: CreateSideTask): void {
   ctx.effect(() => ctx.resources.register(sideChatResourceProvider(ctx.sessions)), 'side-tasks: chat resources')
   ctx.effect(() => ctx.sidebarRightTabs.register({
     id: SIDEBAR_CHAT_ID,
@@ -144,13 +239,20 @@ export function registerSideChat(ctx: Context, t: TranslateNS<typeof NS>): void 
       const label = ctx.sessions.list.getSnapshot().byId[child]?.projectionValues?.subagent?.label
       return label === undefined ? t('empty.title') : sideTaskDisplayLabel(label)
     },
+    guide: [{
+      id: 'new',
+      order: 25,
+      title: () => t('empty.title'),
+      description: () => t('guide.description'),
+      icon: IconNewChatOutlineRegular,
+    }],
   } satisfies SidebarRightTabDefinition), 'side-tasks: chat type')
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
     name: 'sidebar.right.pane.tab',
     key: SIDEBAR_CHAT_ID,
     locale: NS,
     children: { 'sidebar.chat.conversation': { kind: 'single', scope: 'session' } },
-  }, SideChatTab)), 'side-tasks: chat body')
+  }, sideChatTab(createSideTask))), 'side-tasks: chat body')
   ctx.effect(() => ctx.slots.inject('sidebar.chat.conversation', () => ctx.slots.register({
     name: 'sidebar.chat.conversation',
     locale: NS,

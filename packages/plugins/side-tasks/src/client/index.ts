@@ -16,7 +16,7 @@ import type {
   DiscardSideTaskResult,
   SideTaskAddress,
 } from '../types.ts'
-import { parseSideTaskChatAddress, SIDE_CHAT_KIND, sideTaskChatAddress } from '../shared.ts'
+import { parseSideTaskChatAddress, SIDE_CHAT_KIND, SIDE_CHAT_PAGE_ADDRESS, sideTaskChatAddress } from '../shared.ts'
 import { SideTaskAction } from './SideTaskAction.tsx'
 import { registerSideChat } from './sidebar-chat.tsx'
 import { en, NS, zh, type SideTaskKey } from './locales.ts'
@@ -42,9 +42,12 @@ export const inject = ['slots', 'sessions', 'remote', 'remote.sideTasks', 'local
 export function apply(ctx: SideTaskClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'side-tasks: dictionaries')
   ctx.inject(['resources', 'sidebarRightTabs'], (scope) => {
-    registerSideChat(scope, ctx.locale.bind(NS))
+    registerSideChat(scope, ctx.locale.bind(NS), (parentSessionId, prompt) => (
+      ctx.remote.sideTasks.create(parentSessionId, { prompt })
+    ))
   })
   ctx.effect(() => ctx.sidebarRight.registerCloseHandler(SIDE_CHAT_KIND, (parentSessionId, tab) => {
+    if (tab.contentId === SIDE_CHAT_PAGE_ADDRESS) return
     const address = parseSideTaskChatAddress(tab.contentId)
     if (address === undefined || address.parentSessionId !== parentSessionId) {
       throw new Error(`side-tasks: tab "${tab.id}" does not belong to session "${parentSessionId}"`)

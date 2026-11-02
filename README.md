@@ -7,6 +7,7 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 ## Features
 
 - A **Side chat** action in the conversation header.
+- A native card on the right sidebar's Start page, using Harness's `IconNewChatOutlineRegular` and leading to a first-task start page.
 - Context inheritance through Harness's standard `fork` subagent backend.
 - A centered temporary-chat notice while the child is empty.
 - Independent execution with `caller` delivery: completion does not inject a message into the parent conversation.
@@ -22,10 +23,10 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 
 ## Install
 
-Download `dsh-side-tasks-0.2.0.tgz` from the [latest release](https://github.com/QingJ01/dsh-side-tasks/releases/latest), then install it into your profile:
+Download `dsh-side-tasks-0.2.1.tgz` from the [latest release](https://github.com/QingJ01/dsh-side-tasks/releases/latest), then install it into your profile:
 
 ```sh
-dsh plugin --profile desktop add ./dsh-side-tasks-0.2.0.tgz
+dsh plugin --profile desktop add ./dsh-side-tasks-0.2.1.tgz
 ```
 
 Use `--profile web` for a Web profile. Restart Harness after installation, then open a conversation and select **Side chat** in the header.

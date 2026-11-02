@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SideTaskAddress } from '../src/types.ts'
 import { apply } from '../src/client/index.ts'
-import { SIDE_CHAT_KIND, sideTaskChatAddress } from '../src/shared.ts'
+import { SIDE_CHAT_KIND, SIDE_CHAT_PAGE_ADDRESS, sideTaskChatAddress } from '../src/shared.ts'
 
 const address: SideTaskAddress = {
   parentSessionId: 'parent' as SessionId,
@@ -51,6 +51,12 @@ describe('client creation and close lifecycle', () => {
 
     expect(registration).toBeDefined()
     expect(registerCloseHandler).toHaveBeenCalledWith(SIDE_CHAT_KIND, expect.any(Function))
+    const tabType = ctx.sidebarRightTabs.register.mock.calls[0]?.[0]
+    expect(tabType.guide).toHaveLength(1)
+    expect(tabType.guide[0].order).toBe(25)
+    expect(tabType.guide[0].title()).toBe('empty.title')
+    expect(tabType.guide[0].description()).toBe('guide.description')
+    expect(typeof tabType.guide[0].icon).toBe('function')
     const actions = registration!.definition.inject('parent' as SessionId)
     await actions.createSideTask('investigate')
     expect(create).toHaveBeenCalledWith('parent', { prompt: 'investigate' })
@@ -61,6 +67,9 @@ describe('client creation and close lifecycle', () => {
     actions.openSideTask(existing)
     expect(openResource).toHaveBeenCalledTimes(2)
     expect(create).toHaveBeenCalledTimes(1)
+
+    closeHandler!('parent' as SessionId, { id: 'start-page', contentId: SIDE_CHAT_PAGE_ADDRESS })
+    expect(discard).not.toHaveBeenCalled()
 
     closeHandler!('parent' as SessionId, {
       id: 'tab-1',

@@ -1,6 +1,6 @@
 {
   "name": "dsh-side-tasks",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Context-inheriting side tasks in the DeepSeek Harness right sidebar",
   "type": "module",
   "main": "lib/index.js",
