@@ -70,7 +70,9 @@ describe('client creation and close lifecycle', () => {
     const create = vi.fn(async () => ({ ok: true as const, value: address }))
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
     const openTab = vi.fn()
+    const focus = vi.fn()
     const refreshProjections = vi.fn()
+    const openTabs: { sessionId: SessionId; tabId: string; kind: string; contentId: string }[] = []
     const registerCloseHandler = vi.fn((_kind: string, handler: typeof closeHandler) => {
       closeHandler = handler
       return () => {}
@@ -117,7 +119,7 @@ describe('client creation and close lifecycle', () => {
           })),
         },
       },
-      sidebarRight: { openTab, registerCloseHandler, openTabs: { getSnapshot: () => [] } },
+      sidebarRight: { openTab, focus, registerCloseHandler, openTabs: { getSnapshot: () => openTabs } },
     }
     await apply(ctx as never)
 
@@ -142,7 +144,15 @@ describe('client creation and close lifecycle', () => {
     const actions = registration!.definition.inject('parent' as SessionId)
     actions.openSideChat()
     expect(openTab).toHaveBeenCalledWith(SIDE_CHAT_KIND, { preferNewPane: false })
+    expect(focus).not.toHaveBeenCalled()
     expect(create).not.toHaveBeenCalled()
+    // A second click focuses the tab already open for this parent instead of
+    // minting another child and another tab.
+    openTabs.push({ sessionId: 'parent' as SessionId, tabId: 'tab-1', kind: SIDE_CHAT_KIND, contentId: SIDE_CHAT_PAGE_ADDRESS })
+    actions.openSideChat()
+    expect(focus).toHaveBeenCalledWith('tab-1')
+    expect(openTab).toHaveBeenCalledOnce()
+    openTabs.length = 0
 
     const existing: SideTaskAddress = { ...address, childSessionId: 'existing' as SessionId }
 

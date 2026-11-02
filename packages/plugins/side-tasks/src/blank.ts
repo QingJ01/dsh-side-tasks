@@ -1,13 +1,13 @@
 import type {} from '@deepseek-ai/dsh-api-session-controller'
 import { randomUUID } from 'node:crypto'
 import type { Agent, AgentRegistry } from '@deepseek-ai/dsh-agent'
-import type { SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session/types'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
   appendDelegatedPolicyOverrides, applyChildComposition, captureDelegatedPolicyOverrides,
   childSessionMeta, resolveChildAgentOptions, resolveChildDepth,
 } from '@deepseek-ai/dsh-subagent'
 import { createSideTaskLabel, SIDE_TASK_BLANK_LABEL } from './shared.ts'
-import { completedTurnPrefix, SIDE_TASK_PROVIDER } from './provider.ts'
+import { SIDE_TASK_PROVIDER } from './provider.ts'
 import type { SideTaskAddress } from './types.ts'
 
 /** Prepare durable continuation state, then release the writer before the UI can send.
@@ -31,16 +31,15 @@ export async function createBlankSideTask(
     set(session: Agent['session'], preset: string): void
   } | undefined
   const parentPreset = permissionPresets?.current(parent.session)
-  const seed = completedTurnPrefix(parent)
   const label = createSideTaskLabel(SIDE_TASK_BLANK_LABEL)
   const cwd = parent.session.header.cwd
   const childId = randomUUID() as SessionId
   const handle = await agents.create({
     sessionId: childId,
     parentAgent: parent,
-    meta: childSessionMeta(parent, depth, seed.length > 0),
-    inheritedEventCount: seed.length as SessionLogOffset,
-    ...(seed.length === 0 ? {} : { seed }),
+    // No parent events are seeded: the side chat keeps a clean transcript and
+    // its own usage, and receives the parent conversation as prompt context.
+    meta: childSessionMeta(parent, depth, false),
     agentOptions: options,
     signal,
     setup: async (childCtx, child) => {
@@ -79,7 +78,7 @@ export async function createBlankSideTask(
     parent.session.append('subagent/catalog', {
       version: 0, childId, childCreatedAt, mode: 'continuable', label,
     })
-    return { parentSessionId: parent.id, childSessionId: childId, mode: 'continuable', contextThrough: seed.length - 1 }
+    return { parentSessionId: parent.id, childSessionId: childId, mode: 'continuable', contextThrough: -1 }
   } catch (error: unknown) {
     await handle.dispose().catch(() => undefined)
     await archiveFailed(childId).catch(() => undefined)

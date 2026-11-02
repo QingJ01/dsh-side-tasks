@@ -4,6 +4,7 @@ import type {} from '@deepseek-ai/dsh-api-session-controller'
 import { installModelSelection, type Agent, type AgentHandle, type ModelSelectionRef } from '@deepseek-ai/dsh-agent'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { applyChildComposition } from '@deepseek-ai/dsh-subagent'
+import { inheritedContextText, parentEvents, registerInheritedContext } from './context.ts'
 import { isSideTaskDescriptor } from './shared.ts'
 import type { ConfigureSideTaskRequest, ConfigureSideTaskResult, SideChatModel } from './types.ts'
 
@@ -21,15 +22,17 @@ interface Commands {
 export class SideChatSettings {
   private readonly selections = new WeakMap<Agent, ModelSelectionRef>()
   private readonly installed = new Map<Agent, () => void>()
+  private readonly contexts = new Map<Agent, () => void>()
   private readonly serial = new Map<SessionId, Promise<unknown>>()
 
   constructor(private readonly ctx: Context) {
-    ctx.on('agent/created', ({ agent }) => { this.restore(agent) })
+    ctx.on('agent/created', ({ agent }) => this.attach(agent))
     ctx.on('agent/disposed', ({ agent }) => { this.release(agent) })
     ctx.effect(() => () => {
-      for (const agent of this.installed.keys()) this.release(agent)
-    }, 'side-tasks: model routing middleware')
-    for (const agent of ctx.agents.list()) this.restore(agent)
+      for (const agent of [...this.installed.keys()]) this.release(agent)
+      for (const agent of [...this.contexts.keys()]) this.release(agent)
+    }, 'side-tasks: child settings middleware')
+    for (const agent of ctx.agents.list()) this.attach(agent)
   }
 
   exclusive<T>(id: SessionId, action: () => Promise<T>): Promise<T> {
@@ -40,11 +43,16 @@ export class SideChatSettings {
     return run
   }
 
+  /** Whether this Agent is one of the plugin's own side-chat children. */
+  owned(agent: Agent): boolean {
+    if (agent.session.header.origin !== 'subagent') return false
+    return isSideTaskDescriptor(agent.session.snapshotEvents(), agent.session.inheritedEventCount)
+  }
+
   /** Install before a resumed manager child admits its first model request. */
   restore(agent: Agent): void {
-    if (this.selections.has(agent) || agent.session.header.origin !== 'subagent') return
+    if (this.selections.has(agent) || !this.owned(agent)) return
     const events = agent.session.snapshotEvents()
-    if (!isSideTaskDescriptor(events, agent.session.inheritedEventCount)) return
     const own = events.slice(agent.session.inheritedEventCount)
     const picked = own.findLast(event => event.type === 'model/selection')
     const lastUsed = own.findLast(event => event.type === 'request/header')
@@ -60,7 +68,34 @@ export class SideChatSettings {
   private release(agent: Agent): void {
     this.installed.get(agent)?.()
     this.installed.delete(agent)
+    this.contexts.get(agent)?.()
+    this.contexts.delete(agent)
     this.selections.delete(agent)
+  }
+
+  /**
+   * Attach child-owned settings and inherited background at creation/resume.
+   * Serial creation dispatch waits for this, so the first request already sees
+   * the parent conversation; failures never fail an unrelated agent.
+   */
+  private attach(agent: Agent): Promise<undefined> | undefined {
+    try {
+      if (!this.owned(agent)) return undefined
+      this.restore(agent)
+      const parentSessionId = agent.session.header.parentSession
+      if (parentSessionId === undefined || this.contexts.has(agent)) return undefined
+      const signal = AbortSignal.timeout(15_000)
+      return parentEvents(this.ctx, parentSessionId, signal).then((events) => {
+        const text = inheritedContextText(events)
+        if (text !== undefined && !this.contexts.has(agent)) {
+          this.contexts.set(agent, registerInheritedContext(agent.ctx, text))
+        }
+        return undefined
+      }).catch(() => undefined)
+    } catch {
+      // A settings failure must never break creation of an unrelated Agent.
+      return undefined
+    }
   }
 
   private applyOptions(agent: Agent, selection: SideChatModel): void {

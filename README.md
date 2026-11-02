@@ -9,7 +9,7 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 - A small **Side chat** icon at the right of the conversation header; it prepares one idle child in the current right-sidebar pane, then renders Harness's native Conversation and composer, including its editor, command menu, permission controls, and send/stop behavior. No handwritten first-message input or synthetic prompt is used.
 - Native model/reasoning and permission-preset menus. User choices persist on the child only; they do not change the parent or the global model default. Full access retains Harness's risk confirmation.
 - A native card on the right sidebar's Start page, using Harness's `IconNewChatOutlineRegular` and opening the same native side chat.
-- A dedicated `side-task` subagent provider that copies the parent's completed-turn context once.
+- The side chat starts empty and keeps its own transcript and usage. The parent's completed-turn conversation is attached as per-agent prompt context, so the model continues with it while the footer counts only the side chat's own work.
 - A centered temporary-chat notice while the child is empty.
 - Blank preparation releases its AgentHandle before native input can cold-resume the child, preventing writer ownership collisions.
 - A dedicated `sidechat` resource and close handler; model-delegated subagent tabs are unaffected.
@@ -58,7 +58,7 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 
 **Known limitations:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it. Close writes a browser-local pending marker before its Remote request and retries it on later activations, bounded to five attempts and seven days, skipping children still retained elsewhere. Losing that browser storage remains a window where archival can be missed.
 
-Context is captured once from the parent's latest completed-turn prefix. An in-flight parent turn is intentionally excluded. A side chat does not continuously track later parent messages.
+The inherited background is the parent's latest completed-turn conversation: user input and assistant replies, excluding an in-flight turn and non-human context injections. It is read again when a child is cold-resumed, so a resumed side chat inherits the parent's progress up to that moment. No parent turn is copied into the child's transcript, so the child's messages and token usage stay its own.
 
 ## Development
 

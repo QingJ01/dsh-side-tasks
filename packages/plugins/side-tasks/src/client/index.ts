@@ -127,8 +127,18 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       id: 'side-tasks',
       order: -7,
       locale: NS,
-      inject: () => ({
+      inject: (sessionId: SessionId) => ({
         openSideChat() {
+          // Reopening the header action focuses the existing side chat instead
+          // of minting another child and another tab for the same parent.
+          const existing = scope.sidebarRight.openTabs.getSnapshot().find(
+            (tab: { sessionId: SessionId; tabId: string; kind: string }) =>
+              tab.sessionId === sessionId && tab.kind === SIDE_CHAT_KIND,
+          )
+          if (existing !== undefined) {
+            scope.sidebarRight.focus(existing.tabId as never)
+            return
+          }
           scope.sidebarRight.openTab(SIDE_CHAT_KIND, { preferNewPane: false })
         },
       }),

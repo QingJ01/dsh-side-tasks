@@ -58,6 +58,11 @@ describe('blank side chat creation', () => {
       new AbortController().signal,
       vi.fn(),
     )
+    // The child log starts clean: parent turns travel as prompt context, not
+    // as seeded events the transcript and footer would display and count.
+    expect(create.mock.calls[0]?.[0]).not.toHaveProperty('seed')
+    expect(create.mock.calls[0]?.[0]).not.toHaveProperty('inheritedEventCount')
+    expect(create.mock.calls[0]?.[0].meta).toMatchObject({ isSeeded: false })
     expect(result).toEqual({
       contextThrough: -1,
       parentSessionId: 'parent',
