@@ -1,4 +1,4 @@
-/** Browser entry for context-inheriting side tasks. */
+/** Browser entry for temporary, context-inheriting side chats. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -11,13 +11,19 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type {} from '@deepseek-ai/dsh-client-ui-subagent/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
-import type { SideTaskAddress } from '../types.ts'
-import { sideTaskChatAddress } from '../shared.ts'
+import type {
+  DiscardSideTaskRequest,
+  DiscardSideTaskResult,
+  SideTaskAddress,
+} from '../types.ts'
+import { parseSideTaskChatAddress, SIDE_CHAT_KIND, sideTaskChatAddress } from '../shared.ts'
 import { SideTaskAction } from './SideTaskAction.tsx'
+import { registerSideChat } from './sidebar-chat.tsx'
 import { en, NS, zh, type SideTaskKey } from './locales.ts'
 
 interface SideTasksRemote {
   create(parentSessionId: SessionId, request: { prompt: string }): Promise<RemoteResult<SideTaskAddress>>
+  discard(parentSessionId: SessionId, request: DiscardSideTaskRequest): Promise<RemoteResult<DiscardSideTaskResult>>
 }
 
 type SideTaskClientContext = ClientContext & {
@@ -32,9 +38,26 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 export const inject = ['slots', 'sessions', 'remote', 'remote.sideTasks', 'locale', 'sidebarRight']
 
-/** Register the header entry and its create/reopen actions. */
+/** Register the header entry, side-chat tab type, and close lifecycle. */
 export function apply(ctx: SideTaskClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'side-tasks: dictionaries')
+  ctx.inject(['resources', 'sidebarRightTabs'], (scope) => {
+    registerSideChat(scope, ctx.locale.bind(NS))
+  })
+  ctx.effect(() => ctx.sidebarRight.registerCloseHandler(SIDE_CHAT_KIND, (parentSessionId, tab) => {
+    const address = parseSideTaskChatAddress(tab.contentId)
+    if (address === undefined || address.parentSessionId !== parentSessionId) {
+      throw new Error(`side-tasks: tab "${tab.id}" does not belong to session "${parentSessionId}"`)
+    }
+    void ctx.remote.sideTasks.discard(parentSessionId, {
+      childSessionId: address.childSessionId,
+    }).then((result) => {
+      if (!result.ok) console.error(`side-tasks: discard failed: ${result.error.message}`)
+    }).catch((error: unknown) => {
+      console.error(`side-tasks: discard failed: ${String(error)}`)
+    })
+  }), 'side-tasks: close lifecycle')
+
   ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
     name: 'conversation.session.header.actions',
     id: 'side-tasks',
@@ -49,17 +72,15 @@ export function apply(ctx: SideTaskClientContext): void {
         if (result.ok) {
           void ctx.sessions.refreshProjections(parentSessionId)
           ctx.sidebarRight.openResource(sideTaskChatAddress(result.value), {
-            kind: 'subagentchat',
+            kind: SIDE_CHAT_KIND,
             preferNewPane: true,
           })
         }
         return result
       },
       openSideTask(address: SideTaskAddress) {
-        // Reopening only retains an existing child resource. It never invokes
-        // Workspace.startSession, Session.fork, or the creation Remote.
         ctx.sidebarRight.openResource(sideTaskChatAddress(address), {
-          kind: 'subagentchat',
+          kind: SIDE_CHAT_KIND,
           preferNewPane: true,
         })
       },

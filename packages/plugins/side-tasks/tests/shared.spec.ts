@@ -4,6 +4,7 @@ import {
   createSideTaskLabel,
   isSideTaskLabel,
   normalizeSideTaskPrompt,
+  parseSideTaskChatAddress,
   sideTaskChatAddress,
   sideTaskDisplayLabel,
 } from '../src/shared.ts'
@@ -30,9 +31,15 @@ describe('side-task labels and addresses', () => {
     })
     const url = new URL(address)
     expect(url.protocol).toBe('dsh-resource:')
-    expect(url.hostname).toBe('subagentchat')
+    expect(url.hostname).toBe('sidechat')
     expect(url.searchParams.get('parent')).toBe('parent/1')
     expect(url.searchParams.get('mode')).toBe('continuable')
     expect(decodeURIComponent(url.pathname.split('/').at(-1) ?? '')).toBe('child/1')
+    expect(parseSideTaskChatAddress(address)).toEqual({
+      parentSessionId: 'parent/1',
+      childSessionId: 'child/1',
+      mode: 'continuable',
+    })
+    expect(parseSideTaskChatAddress(address.replace('sidechat', 'subagentchat'))).toBeUndefined()
   })
 })

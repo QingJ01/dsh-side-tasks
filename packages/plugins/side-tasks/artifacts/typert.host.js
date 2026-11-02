@@ -10,6 +10,9 @@ const address = () => z.object({
   childSessionId: z.string().readonly(),
   mode: z.literal('continuable').readonly(),
 })
+const discardRequest = () => z.object({ childSessionId: z.string().readonly() })
+const strictDiscardRequest = () => z.strictObject({ childSessionId: z.string().readonly() })
+const discardResult = () => z.object({ discarded: z.literal(true).readonly() })
 
 const $remote = createTypertRemoteInfo({
   package: 'dsh-side-tasks',
@@ -85,6 +88,73 @@ const $remote = createTypertRemoteInfo({
       },
       sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 32, column: 3 },
     },
+    'sideTasks/discard': {
+      service: 'sideTasks',
+      description: 'Stop and archive a side chat when its tab closes.',
+      invocation: { kind: 'direct' },
+      scope: { context: 'agent', wire: 'agentId' },
+      parameters: [
+        {
+          name: 'agent',
+          wire: 'agentId',
+          description: 'exact live parent agent.',
+          source: 'lookup',
+          lookup: 'agent',
+          codec: {
+            mode: 'strict',
+            typeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
+            create: sessionId,
+            jsonSchema: { type: 'string' },
+          },
+          strictCodec: {
+            mode: 'strict',
+            typeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
+            create: sessionId,
+            jsonSchema: { type: 'string' },
+          },
+        },
+        {
+          name: 'request',
+          description: 'child session to discard.',
+          source: 'json',
+          codec: {
+            mode: 'strict',
+            typeSymbol: 'dsh-side-tasks#DiscardSideTaskRequest',
+            create: discardRequest,
+            jsonSchema: {
+              type: 'object',
+              properties: { childSessionId: { type: 'string' } },
+              required: ['childSessionId'],
+              additionalProperties: true,
+            },
+          },
+          strictCodec: {
+            mode: 'strict',
+            typeSymbol: 'dsh-side-tasks#DiscardSideTaskRequest',
+            create: strictDiscardRequest,
+            jsonSchema: {
+              type: 'object',
+              properties: { childSessionId: { type: 'string' } },
+              required: ['childSessionId'],
+              additionalProperties: false,
+            },
+          },
+        },
+      ],
+      result: {
+        mode: 'strict',
+        typeSymbol: 'dsh-side-tasks#DiscardSideTaskResult',
+        create: discardResult,
+        description: 'confirmation that the close lifecycle completed.',
+        jsonSchema: {
+          type: 'object',
+          properties: { discarded: { type: 'boolean', enum: [true] } },
+          required: ['discarded'],
+          additionalProperties: true,
+        },
+      },
+      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 43, column: 3 },
+    },
   },
 }, z)
 
@@ -107,6 +177,12 @@ export const TYPERT = {
         signature: "@Remote('create') async create(agent: Agent, request: CreateSideTaskRequest, signal: AbortSignal): Promise<SideTaskAddress>",
         summary: 'Create one child without creating or selecting an ordinary session.',
         jsDoc: '/** Create one child without creating or selecting an ordinary session. */',
+      }, {
+        kind: 'method',
+        name: 'discard',
+        signature: "@Remote('discard') async discard(agent: Agent, request: DiscardSideTaskRequest, signal: AbortSignal): Promise<DiscardSideTaskResult>",
+        summary: 'Stop and archive one plugin-owned child when its tab closes.',
+        jsDoc: '/** Stop and archive one plugin-owned child when its tab closes. */',
       }],
       types: [],
     }],

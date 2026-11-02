@@ -11,3 +11,13 @@ export interface SideTaskAddress {
   readonly childSessionId: SessionId
   readonly mode: 'continuable'
 }
+
+/** Child to stop and archive when its side-chat tab closes. */
+export interface DiscardSideTaskRequest {
+  readonly childSessionId: SessionId
+}
+
+/** Confirmation that the close lifecycle was admitted. */
+export interface DiscardSideTaskResult {
+  readonly discarded: true
+}

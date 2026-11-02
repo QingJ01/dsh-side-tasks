@@ -38,6 +38,7 @@ function renderAction(overrides: Partial<SideTaskActionProps> = {}) {
   const props = {
     sessionId: parentId,
     useSessions: (selector: (value: typeof state) => unknown) => selector(state),
+    useWorkspaces: (selector: (value: { archivedSessionIds: SessionId[] }) => unknown) => selector({ archivedSessionIds: [] }),
     refreshSideTasks: vi.fn(),
     createSideTask: vi.fn(async () => ({ ok: true as const, value: address })),
     openSideTask: vi.fn(),
@@ -69,6 +70,16 @@ describe('SideTaskAction', () => {
       mode: 'continuable',
     })
     expect(props.createSideTask).not.toHaveBeenCalled()
+  })
+
+  it('hides discarded children from the reopen list', () => {
+    const useWorkspaces = ((selector: (value: { archivedSessionIds: SessionId[] }) => unknown) => (
+      selector({ archivedSessionIds: ['existing' as SessionId] })
+    )) as SideTaskActionProps['useWorkspaces']
+    renderAction({ useWorkspaces })
+    fireEvent.click(screen.getByRole('button', { name: en['action.open'] }))
+    expect(screen.queryByRole('button', { name: 'Reopen Existing investigation in the right sidebar' })).toBeNull()
+    expect(screen.getByText(en['existing.empty'])).toBeTruthy()
   })
 
   it('keeps the dialog open with an actionable error on failure', async () => {

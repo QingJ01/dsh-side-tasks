@@ -2,32 +2,33 @@
 
 [中文文档](README.zh.md)
 
-A dual-face DeepSeek Harness plugin for Codex-style side tasks. It creates a continuable child with the current session's completed-turn context and opens it in the right sidebar. Closing or collapsing the sidebar does not cancel the task, create an ordinary session, or add a row to the left session list.
+A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It creates a continuable child with the current session's completed-turn context and opens it in an independent `sidechat` tab. Closing that tab stops and archives the child instead of leaving another ordinary session in the left list.
 
 ## Features
 
-- A **Side tasks** action in the conversation header.
+- A **Side chat** action in the conversation header.
 - Context inheritance through Harness's standard `fork` subagent backend.
+- A centered temporary-chat notice while the child is empty.
 - Independent execution with `caller` delivery: completion does not inject a message into the parent conversation.
-- Create and reopen from the same dialog; reopening never calls the creation API.
-- Durable recovery through the parent's subagent catalog, including after a page refresh.
-- Existing Harness chat, composer, stop, and right-sidebar behavior; no forked UI implementation.
+- A dedicated `sidechat` resource and close handler; model-delegated subagent tabs are unaffected.
+- `sideTasks/discard` verifies plugin ownership, drains the child, and archives it with activity stopped.
+- Archived children disappear from the plugin's reopen list.
 
 ## Requirements
 
 - DeepSeek Harness `>=0.2.1-rc.5 <0.3.0`
 - Node.js `>=24.9.0` for development
-- A Web or Desktop profile with the standard `fork` subagent provider and `dsh-client-ui-subagent`
+- A Web or Desktop profile with the standard `fork` subagent provider, Workspace registry, and `dsh-client-ui-subagent`
 
 ## Install
 
-Download `dsh-side-tasks-0.1.0.tgz` from the [latest release](https://github.com/QingJ01/dsh-side-tasks/releases/latest), then install it into your profile:
+Download `dsh-side-tasks-0.2.0.tgz` from the [latest release](https://github.com/QingJ01/dsh-side-tasks/releases/latest), then install it into your profile:
 
 ```sh
-dsh plugin --profile desktop add ./dsh-side-tasks-0.1.0.tgz
+dsh plugin --profile desktop add ./dsh-side-tasks-0.2.0.tgz
 ```
 
-Use `--profile web` for a Web profile. Restart Harness after installation, then open any conversation and select **Side tasks** in the header.
+Use `--profile web` for a Web profile. Restart Harness after installation, then open a conversation and select **Side chat** in the header.
 
 For a local checkout:
 
@@ -43,13 +44,16 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 
 | Action | Result |
 | --- | --- |
-| Create a side task | Allocates one continuable subagent child and opens its existing `subagentchat` resource on the right. |
-| Close a tab or collapse the sidebar | Releases only the view's session reference. The child remains in the parent catalog and is not replaced. |
-| Reopen a task | Retains the same child address; no creation RPC and no ordinary session. |
+| Create a side chat | Allocates one continuable subagent child and opens its `sidechat` resource on the right. |
+| Close the corresponding tab | Calls `sideTasks/discard`, drains the child, and archives it. No ordinary session is created. |
+| Reopen before closing | Retains the same child address; no creation RPC and no ordinary session. |
+| Reopen after closing | Archived children are excluded from the plugin's reopen list. |
+| Merely collapse the right sidebar | Does not close the tab or trigger archival. |
 | Task completes | Updates the child transcript without waking the parent model. |
-| Parent is offline | The existing Harness continuation UI becomes read-only until the parent is available. |
 
-Context is captured once from the parent's latest completed-turn prefix. An in-flight parent turn is intentionally excluded. A side task does not continuously track later parent messages.
+**Deletion semantics:** Harness exposes durable archival, not physical deletion of session logs through its public plugin API. This plugin uses that supported lifecycle and never edits session files directly. The UI describes this as ending and removing the temporary chat, not erasing its files.
+
+Context is captured once from the parent's latest completed-turn prefix. An in-flight parent turn is intentionally excluded. A side chat does not continuously track later parent messages.
 
 ## Development
 
@@ -60,7 +64,7 @@ pnpm test        # Build and run all tests
 pnpm --filter dsh-side-tasks pack --pack-destination dist
 ```
 
-The package has Host (`src/index.ts`) and browser (`src/client/index.ts`) faces. `cordis.patch.yml` mounts the Host service, while `dsh.client` advertises the browser entry. Remote metadata uses the public `createTypertRemoteInfo` protocol with Agent lookup and Zod codecs. Build artifacts are copied into `lib/` by `scripts/postbuild.mjs`.
+The package has Host (`src/index.ts`) and browser (`src/client/index.ts`) faces. `src/client/sidebar-chat.tsx` owns the resource, empty state, and tab adapter. Remote metadata uses the public `createTypertRemoteInfo` protocol with Agent lookup and Zod codecs. Build artifacts are copied into `lib/` by `scripts/postbuild.mjs`.
 
 ## License
 

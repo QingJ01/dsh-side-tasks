@@ -8,6 +8,7 @@ import {
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionListState, SessionProjectionMap } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SideTaskAddress } from '../types.ts'
 import { isSideTaskLabel, sideTaskDisplayLabel } from '../shared.ts'
 import { NS } from './locales.ts'
@@ -65,6 +66,7 @@ const existingButtonStyle: CSSProperties = {
 export function SideTaskAction({
   sessionId,
   useSessions,
+  useWorkspaces,
   refreshSideTasks,
   createSideTask,
   openSideTask,
@@ -78,7 +80,12 @@ export function SideTaskAction({
   const catalog: SessionProjectionMap['subagentCatalog'] | undefined = useSessions(
     (state: SessionListState) => state.projectionsBySession[sessionId]?.values.subagentCatalog,
   )
-  const sideTasks = (catalog ?? []).filter(entry => entry.mode === 'continuable' && isSideTaskLabel(entry.label))
+  const archivedSessionIds = useWorkspaces(
+    (state: { archivedSessionIds: readonly SessionId[] }) => state.archivedSessionIds,
+  )
+  const sideTasks = (catalog ?? []).filter(entry => entry.mode === 'continuable'
+    && isSideTaskLabel(entry.label)
+    && !archivedSessionIds.includes(entry.id))
 
   useEffect(() => {
     if (open) refreshSideTasks()

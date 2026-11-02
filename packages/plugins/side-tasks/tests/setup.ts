@@ -21,5 +21,6 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
       footer)
     : null,
   IconBranchOutlineRegular: () => null,
+  IconNewChatOutlineRegular: () => null,
   IconChevronRightOutlineRegular: () => null,
 }))
