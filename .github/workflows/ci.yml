@@ -20,4 +20,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - name: Verify package contents
-        run: pnpm --filter dsh-side-tasks pack --pack-destination dist
+        run: |
+          pnpm --filter dsh-side-tasks pack --pack-destination dist
+          node packages/plugins/side-tasks/scripts/verify-pack.mjs dist/dsh-side-tasks-0.1.0.tgz

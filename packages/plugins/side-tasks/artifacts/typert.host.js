@@ -123,8 +123,14 @@ const address = () => z.object({
   childSessionId: z.string().readonly(),
   mode: z.literal('continuable').readonly(),
 })
-const discardRequest = () => z.object({ childSessionId: z.string().readonly() })
-const strictDiscardRequest = () => z.strictObject({ childSessionId: z.string().readonly() })
+const discardRequest = () => z.object({
+  parentSessionId: z.string().readonly(),
+  childSessionId: z.string().readonly(),
+})
+const strictDiscardRequest = () => z.strictObject({
+  parentSessionId: z.string().readonly(),
+  childSessionId: z.string().readonly(),
+})
 const discardResult = () => z.object({ discarded: z.literal(true).readonly() })
 
 const $remote = createTypertRemoteInfo({
@@ -207,30 +213,10 @@ const $remote = createTypertRemoteInfo({
       description: 'Stop and archive a side chat when its tab closes.',
       invocation: { kind: 'direct' },
       cancellation: { parameter: 'signal' },
-      scope: { context: 'agent', wire: 'agentId' },
       parameters: [
         {
-          name: 'agent',
-          wire: 'agentId',
-          description: 'exact live parent agent.',
-          source: 'lookup',
-          lookup: 'agent',
-          codec: {
-            mode: 'strict',
-            typeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
-            create: sessionId,
-            jsonSchema: { type: 'string' },
-          },
-          strictCodec: {
-            mode: 'strict',
-            typeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
-            create: sessionId,
-            jsonSchema: { type: 'string' },
-          },
-        },
-        {
           name: 'request',
-          description: 'child session to discard.',
+          description: 'parent/child pair to discard; the parent Agent may be offline.',
           source: 'json',
           codec: {
             mode: 'strict',
@@ -238,8 +224,11 @@ const $remote = createTypertRemoteInfo({
             create: discardRequest,
             jsonSchema: {
               type: 'object',
-              properties: { childSessionId: { type: 'string' } },
-              required: ['childSessionId'],
+              properties: {
+                parentSessionId: { type: 'string' },
+                childSessionId: { type: 'string' },
+              },
+              required: ['parentSessionId', 'childSessionId'],
               additionalProperties: true,
             },
           },
@@ -249,8 +238,11 @@ const $remote = createTypertRemoteInfo({
             create: strictDiscardRequest,
             jsonSchema: {
               type: 'object',
-              properties: { childSessionId: { type: 'string' } },
-              required: ['childSessionId'],
+              properties: {
+                parentSessionId: { type: 'string' },
+                childSessionId: { type: 'string' },
+              },
+              required: ['parentSessionId', 'childSessionId'],
               additionalProperties: false,
             },
           },
@@ -295,7 +287,7 @@ export const TYPERT = {
       }, {
         kind: 'method',
         name: 'discard',
-        signature: "@Remote('discard') async discard(agent: Agent, request: DiscardSideTaskRequest, signal: AbortSignal): Promise<DiscardSideTaskResult>",
+        signature: "@Remote('discard') async discard(request: DiscardSideTaskRequest, signal: AbortSignal): Promise<DiscardSideTaskResult>",
         summary: 'Stop and archive one plugin-owned child when its tab closes.',
         jsDoc: '/** Stop and archive one plugin-owned child when its tab closes. */',
       }],

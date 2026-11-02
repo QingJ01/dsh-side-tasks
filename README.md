@@ -13,7 +13,7 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 - Independent execution with `caller` delivery: completion does not inject a message into the parent conversation.
 - A dedicated `sidechat` resource and close handler; model-delegated subagent tabs are unaffected.
 - `sideTasks/discard` authenticates the persisted `side-task` provider descriptor, archives it with active work stopped, then best-effort drains the resident child.
-- Deferred client injection keeps DSH booting if the Host Remote is unavailable.
+- Client activation is crash-isolated. `$mount` is local, so a disabled Host service is detected only when its first RPC fails.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 
 **Deletion semantics:** Harness exposes durable archival, not physical deletion of session logs through its public plugin API. This plugin uses that supported lifecycle and never edits session files directly. The UI describes this as ending and removing the temporary chat, not erasing its files.
 
-**Known limitations:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it. Close performs one Remote discard request; if the app exits or the connection drops before that request completes, archival is best-effort and may need a retry.
+**Known limitations:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it. Close writes a browser-local pending marker before its Remote request and retries it on later activations, bounded to five attempts and seven days, skipping children still retained elsewhere. Losing that browser storage remains a window where archival can be missed.
 
 Context is captured once from the parent's latest completed-turn prefix. An in-flight parent turn is intentionally excluded. A side chat does not continuously track later parent messages.
 
@@ -66,7 +66,7 @@ pnpm test        # Build and run all tests
 pnpm --filter dsh-side-tasks pack --pack-destination dist
 ```
 
-The package has Host (`src/index.ts`) and browser (`src/client/index.ts`) faces. `src/client/sidebar-chat.tsx` owns the resource, empty state, and tab adapter. Remote metadata embeds the protocol's lazy info factory so profile-level protocol hoisting cannot break the subpath import, while retaining Agent lookup and Zod codecs. Build artifacts are copied into `lib/` by `scripts/postbuild.mjs`.
+The package has Host (`src/index.ts`) and browser (`src/client/index.ts`) faces. `src/client/sidebar-chat.tsx` owns the resource, empty state, and tab adapter. Remote metadata embeds the protocol's lazy info factory so profile-level protocol hoisting cannot break the subpath import, while retaining Agent lookup for creation, descriptor ownership checks for discard, and Zod codecs. Build artifacts are copied into `lib/` by `scripts/postbuild.mjs`.
 
 ## License
 

@@ -2,7 +2,7 @@ export const NS = 'sideTasks'
 
 export const zh = {
   'action.label': '侧边聊天',
-  'action.open': '新建或恢复侧边聊天',
+  'action.open': '新建侧边聊天',
   'modal.title': '侧边聊天',
   'modal.description': '继承当前会话已完成回合的上下文，在右侧栏独立运行。关闭对应标签后会停止并归档这个临时会话。',
   'prompt.label': '第一个任务',
@@ -11,6 +11,8 @@ export const zh = {
   'create': '创建并在右侧打开',
   'create.pending': '正在创建…',
   'create.failed': '创建失败：{message}',
+  'loading': '正在加载侧边聊天…',
+  'load.failed': '无法打开侧边聊天：{message}',
   'cancel': '取消',
   'close': '关闭',
   'empty.title': '侧边聊天',
@@ -23,7 +25,7 @@ export type SideTaskKey = keyof typeof zh
 
 export const en: Record<SideTaskKey, string> = {
   'action.label': 'Side chat',
-  'action.open': 'Create or reopen a side chat',
+  'action.open': 'Create a side chat',
   'modal.title': 'Side chat',
   'modal.description': 'Inherits this session’s completed-turn context and runs independently in the right sidebar. Closing its tab stops and archives the temporary session.',
   'prompt.label': 'First task',
@@ -32,6 +34,8 @@ export const en: Record<SideTaskKey, string> = {
   'create': 'Create and open',
   'create.pending': 'Creating…',
   'create.failed': 'Could not create the side task: {message}',
+  'loading': 'Loading the side chat…',
+  'load.failed': 'Could not open the side chat: {message}',
   'cancel': 'Cancel',
   'close': 'Close',
   'empty.title': 'Side chat',

@@ -2,11 +2,11 @@ import { defineConfig } from 'tsdown'
 
 const hostExternals = [
   '@deepseek-ai/cordis',
-  '@deepseek-ai/dsh-subagent',
   '@deepseek-ai/dsh-typert-protocol',
 ]
 
 const clientExternals = [
+  'zod',
   'react',
   'react-dom',
   'react/jsx-runtime',

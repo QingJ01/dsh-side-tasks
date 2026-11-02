@@ -16,6 +16,32 @@ describe('Typert Remote artifacts', () => {
     expect(methods).toEqual(decorators)
   })
 
+  it('pins parameter wires, lookup scope, and result types', () => {
+    const create = TYPERT.invocations.find(item => item.id === 'dsh-side-tasks#sideTasks/create')
+    const discard = TYPERT.invocations.find(item => item.id === 'dsh-side-tasks#sideTasks/discard')
+    expect(create?.scope).toEqual({ context: 'agent', wire: 'agentId' })
+    expect(create?.parameters.map(parameter => ({
+      name: parameter.name,
+      wire: parameter.wire,
+      source: parameter.source,
+      typeSymbol: parameter.strictCodec?.typeSymbol,
+    }))).toEqual([
+      { name: 'agent', wire: 'agentId', source: 'lookup', typeSymbol: '@deepseek-ai/dsh-session/types#SessionId' },
+      { name: 'request', wire: 'request', source: 'json', typeSymbol: 'dsh-side-tasks#CreateSideTaskRequest' },
+    ])
+    expect(create?.result.typeSymbol).toBe('dsh-side-tasks#SideTaskAddress')
+    expect(discard?.scope).toBeUndefined()
+    expect(discard?.parameters.map(parameter => ({
+      name: parameter.name,
+      wire: parameter.wire,
+      source: parameter.source,
+      typeSymbol: parameter.strictCodec?.typeSymbol,
+    }))).toEqual([
+      { name: 'request', wire: 'request', source: 'json', typeSymbol: 'dsh-side-tasks#DiscardSideTaskRequest' },
+    ])
+    expect(discard?.result.typeSymbol).toBe('dsh-side-tasks#DiscardSideTaskResult')
+  })
+
   it('wires the Gateway-injected cancellation signal on both endpoints', () => {
     for (const id of ['dsh-side-tasks#sideTasks/create', 'dsh-side-tasks#sideTasks/discard']) {
       const invocation = TYPERT.invocations.find(item => item.id === id)
@@ -53,9 +79,8 @@ describe('Typert Remote artifacts', () => {
   it('validates the close request and result', () => {
     const method = TYPERT_REMOTE.methods['sideTasks/discard']
     expect(method.input({ strict: true }).create().parse({
-      agentId: 'parent',
-      request: { childSessionId: 'child' },
-    })).toEqual({ agentId: 'parent', request: { childSessionId: 'child' } })
+      request: { parentSessionId: 'parent', childSessionId: 'child' },
+    })).toEqual({ request: { parentSessionId: 'parent', childSessionId: 'child' } })
     expect(method.result.create().parse({ discarded: true })).toEqual({ discarded: true })
   })
 })

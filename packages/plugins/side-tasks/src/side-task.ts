@@ -1,13 +1,12 @@
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import {
-  foldSubagentDescriptor,
-  type SubagentActivation,
-  type SubagentActivationSpec,
-  type SubagentRuntime,
+import type {
+  SubagentActivation,
+  SubagentActivationSpec,
+  SubagentRuntime,
 } from '@deepseek-ai/dsh-subagent'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceRegistry } from '@deepseek-ai/dsh-workspace'
-import { createSideTaskLabel, normalizeSideTaskPrompt } from './shared.ts'
+import { createSideTaskLabel, isSideTaskDescriptor, normalizeSideTaskPrompt } from './shared.ts'
 import { SIDE_TASK_PROVIDER } from './provider.ts'
 import type { DiscardSideTaskResult, SideTaskAddress } from './types.ts'
 
@@ -72,21 +71,19 @@ export async function discardSideTask(
   subagents: Pick<SubagentRuntime, 'listChildren' | 'drainChildren'>,
   workspace: Pick<WorkspaceRegistry, 'archiveSession'>,
   query: SideTaskQuery,
-  parent: Agent,
+  parentSessionId: SessionId,
+  parent: Agent | undefined,
   childSessionId: SessionId,
   signal: AbortSignal,
 ): Promise<DiscardSideTaskResult> {
-  const children = await subagents.listChildren(parent.id, signal)
+  const children = await subagents.listChildren(parentSessionId, signal)
   const child = children.find(entry => entry.id === childSessionId)
   if (child === undefined || child.mode !== 'continuable') {
-    throw new Error(`Session "${childSessionId}" is not a child of "${parent.id}".`)
+    throw new Error(`Session "${childSessionId}" is not a child of "${parentSessionId}".`)
   }
 
   using observation = await query.observeSession(childSessionId, { projectionMode: 'none', signal })
-  const descriptor = foldSubagentDescriptor(observation.events.slice(observation.inheritedEventCount))
-  // The descriptor provider is durable and not model- or user-editable.
-  const owned = descriptor?.mode === 'continuable' && descriptor.provider === SIDE_TASK_PROVIDER
-  if (!owned) {
+  if (!isSideTaskDescriptor(observation.events, observation.inheritedEventCount)) {
     throw new Error(`Session "${childSessionId}" was not created by the side-task plugin.`)
   }
 
@@ -94,11 +91,13 @@ export async function discardSideTask(
   // Archive is the durable half: make the child unreachable before optional
   // teardown. The archive provider stops active work itself.
   await workspace.archiveSession(childSessionId, { stopActivity: true })
-  try {
-    await subagents.drainChildren(parent, [childSessionId])
-  } catch {
-    // The session is already archived and stopped; a resident activation that
-    // refuses teardown must not resurrect it or fail the close command.
+  if (parent !== undefined) {
+    try {
+      await subagents.drainChildren(parent, [childSessionId])
+    } catch {
+      // The session is already archived and stopped; a resident activation that
+      // refuses teardown must not resurrect it or fail the close command.
+    }
   }
   return { discarded: true }
 }

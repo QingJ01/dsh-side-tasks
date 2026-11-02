@@ -12,8 +12,9 @@ export interface SideTaskAddress {
   readonly mode: 'continuable'
 }
 
-/** Child to stop and archive when its side-chat tab closes. */
+/** Parent/child pair to stop and archive when its side-chat tab closes. */
 export interface DiscardSideTaskRequest {
+  readonly parentSessionId: SessionId
   readonly childSessionId: SessionId
 }
 

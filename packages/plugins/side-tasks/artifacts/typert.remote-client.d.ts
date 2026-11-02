@@ -10,18 +10,17 @@ import type {
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$736964655461736b73 {
     create: (agentId: SessionId, request: CreateSideTaskRequest) => Promise<RemoteResult<SideTaskAddress>>
-    discard: (agentId: SessionId, request: DiscardSideTaskRequest) => Promise<RemoteResult<DiscardSideTaskResult>>
+    discard: (request: DiscardSideTaskRequest) => Promise<RemoteResult<DiscardSideTaskResult>>
   }
   interface TypertRemoteMap {
     'sideTasks/create': (agentId: SessionId, request: CreateSideTaskRequest) => Promise<RemoteResult<SideTaskAddress>>
-    'sideTasks/discard': (agentId: SessionId, request: DiscardSideTaskRequest) => Promise<RemoteResult<DiscardSideTaskResult>>
+    'sideTasks/discard': (request: DiscardSideTaskRequest) => Promise<RemoteResult<DiscardSideTaskResult>>
   }
   interface TypertRemoteNamespaceMap {
     sideTasks: TypertRemoteNamespace$736964655461736b73
   }
   interface TypertRemoteScopeMap {
     'agent:sideTasks/create': (request: CreateSideTaskRequest) => Promise<RemoteResult<SideTaskAddress>>
-    'agent:sideTasks/discard': (request: DiscardSideTaskRequest) => Promise<RemoteResult<DiscardSideTaskResult>>
   }
 }
 
@@ -31,7 +30,6 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
     readonly request: CreateSideTaskRequest
   }, SideTaskAddress>
   readonly 'sideTasks/discard': TypertRemoteMethod<{
-    readonly agentId: SessionId
     readonly request: DiscardSideTaskRequest
   }, DiscardSideTaskResult>
 }>

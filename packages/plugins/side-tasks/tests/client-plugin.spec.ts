@@ -24,15 +24,29 @@ describe('client creation and close lifecycle', () => {
     expect(injectChild).not.toHaveBeenCalled()
   })
 
-  it('does not hold the plugin activation open while UI services are pending', async () => {
+  it('does not reject boot when locale registration collides', async () => {
+    const ctx = {
+      effect: () => { throw new Error('duplicate locale') },
+      locale: { register: vi.fn() },
+    }
+    await expect(apply(ctx as never)).resolves.toEqual(expect.any(Function))
+  })
+
+  it('rolls back the Remote when async UI registration fails', async () => {
     const unmountRemote = vi.fn(async () => {})
+    const dispose = vi.fn(async () => {})
     const ctx = {
       effect: (callback: () => unknown) => callback(),
       locale: { register: vi.fn() },
       remote: { $mount: vi.fn(async () => unmountRemote) },
-      inject: () => ({ then: () => {}, dispose: vi.fn(async () => {}) }),
+      inject: () => ({
+        then: (_resolve: unknown, reject: (error: Error) => void) => reject(new Error('registration failed')),
+        dispose,
+      }),
     }
     await expect(apply(ctx as never)).resolves.toEqual(expect.any(Function))
+    expect(dispose).toHaveBeenCalledOnce()
+    expect(unmountRemote).toHaveBeenCalledOnce()
   })
 
   it('unmounts the Remote if UI registration throws synchronously', async () => {
@@ -56,6 +70,7 @@ describe('client creation and close lifecycle', () => {
     const create = vi.fn(async () => ({ ok: true as const, value: address }))
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
     const openResource = vi.fn()
+    const openResourceIn = vi.fn()
     const refreshProjections = vi.fn()
     const registerCloseHandler = vi.fn((_kind: string, handler: typeof closeHandler) => {
       closeHandler = handler
@@ -101,7 +116,12 @@ describe('client creation and close lifecycle', () => {
           })),
         },
       },
-      sidebarRight: { openResource, registerCloseHandler },
+      sidebarRight: {
+        openResource,
+        openResourceIn,
+        tabsIn: vi.fn(() => [{ contentId: sideTaskChatAddress(address) }]),
+        registerCloseHandler,
+      },
     }
     await apply(ctx as never)
 
@@ -126,11 +146,13 @@ describe('client creation and close lifecycle', () => {
     const actions = registration!.definition.inject('parent' as SessionId)
     await actions.createSideTask('investigate')
     expect(create).toHaveBeenCalledWith('parent', { prompt: 'investigate' })
-    expect(openResource).toHaveBeenCalledTimes(1)
-    expect(openResource.mock.calls[0]?.[1]).toEqual({ kind: SIDE_CHAT_KIND, preferNewPane: true })
+    expect(openResourceIn).toHaveBeenCalledTimes(1)
+    expect(openResourceIn.mock.calls[0]?.[0]).toBe('parent')
+    expect(openResourceIn.mock.calls[0]?.[1]).toBe(sideTaskChatAddress(address))
+    expect(openResourceIn.mock.calls[0]?.[2]).toEqual({ kind: SIDE_CHAT_KIND, preferNewPane: true })
+    expect(openResource).not.toHaveBeenCalled()
 
     const existing: SideTaskAddress = { ...address, childSessionId: 'existing' as SessionId }
-    expect(openResource).toHaveBeenCalledTimes(1)
 
     closeHandler!('parent' as SessionId, { id: 'start-page', contentId: SIDE_CHAT_PAGE_ADDRESS })
     expect(discard).not.toHaveBeenCalled()
@@ -144,8 +166,11 @@ describe('client creation and close lifecycle', () => {
       id: 'tab-1',
       contentId: sideTaskChatAddress(existing),
     })
-    await vi.waitFor(() => expect(discard).toHaveBeenCalledWith('parent', { childSessionId: 'existing' }))
+    await vi.waitFor(() => expect(discard).toHaveBeenCalledWith({
+      parentSessionId: 'parent',
+      childSessionId: 'existing',
+    }))
     expect(create).toHaveBeenCalledTimes(1)
-    expect(openResource).toHaveBeenCalledTimes(1)
+    expect(openResourceIn).toHaveBeenCalledTimes(1)
   })
 })

@@ -19,13 +19,19 @@ import type {
   SideTaskAddress,
 } from '../types.ts'
 import { parseSideTaskChatAddress, SIDE_CHAT_KIND, SIDE_CHAT_PAGE_ADDRESS, sideTaskChatAddress } from '../shared.ts'
+import {
+  browserDiscardStorage,
+  enqueuePendingDiscard,
+  flushPendingDiscards,
+  removePendingDiscard,
+} from './discard-queue.ts'
 import { SideTaskAction } from './SideTaskAction.tsx'
 import { registerSideChat } from './sidebar-chat.tsx'
 import { en, NS, zh, type SideTaskKey } from './locales.ts'
 
 interface SideTasksRemote {
   create(parentSessionId: SessionId, request: { prompt: string }): Promise<RemoteResult<SideTaskAddress>>
-  discard(parentSessionId: SessionId, request: DiscardSideTaskRequest): Promise<RemoteResult<DiscardSideTaskResult>>
+  discard(request: DiscardSideTaskRequest): Promise<RemoteResult<DiscardSideTaskResult>>
 }
 
 type SideTaskRemote = ClientContext['remote'] & { sideTasks: SideTasksRemote }
@@ -43,7 +49,13 @@ export const inject = ['slots', 'sessions', 'remote', 'locale', 'sidebarRight']
 
 /** Register the header entry, side-chat tab type, and close lifecycle. */
 export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'side-tasks: dictionaries')
+  const storage = browserDiscardStorage()
+  try {
+    ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'side-tasks: dictionaries')
+  } catch (error: unknown) {
+    console.error(`side-tasks: locale registration failed: ${String(error)}`)
+    return async () => {}
+  }
   let unmountRemote: (() => Promise<void>) | undefined
   try {
     unmountRemote = await ctx.remote.$mount(remoteContribution)
@@ -51,7 +63,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     console.error(`side-tasks: Remote mount failed: ${String(error)}`)
     return async () => {}
   }
-  let ui: ReturnType<typeof ctx.inject>
+  let ui: ReturnType<typeof ctx.inject> | undefined
   try {
     ui = ctx.inject(['resources', 'sidebarRightTabs', 'remote.sideTasks'], (scope) => {
       const remote = (scope.remote as SideTaskRemote).sideTasks
@@ -72,7 +84,24 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       return result
     }
 
+    const discardCreatedChild = async (
+      parentSessionId: SessionId,
+      childSessionId: SessionId,
+    ): Promise<void> => {
+      const request = { parentSessionId, childSessionId }
+      enqueuePendingDiscard(storage, request)
+      try {
+        const result = await remote.discard(request)
+        if (result.ok) removePendingDiscard(storage, request)
+      } catch {
+        // The pending marker retries this cleanup on the next activation.
+      }
+    }
+
     registerSideChat(scope, sessions, scope.locale.bind(NS), createSideTask)
+    void flushPendingDiscards(storage, request => remote.discard(request), {
+      shouldSkip: request => sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0,
+    })
 
     scope.effect(() => scope.sidebarRight.registerCloseHandler(SIDE_CHAT_KIND, (parentSessionId, tab) => {
       if (tab.contentId === SIDE_CHAT_PAGE_ADDRESS) return
@@ -81,10 +110,11 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
         console.error(`side-tasks: tab "${tab.id}" does not belong to session "${parentSessionId}"`)
         return
       }
-      void remote.discard(parentSessionId, {
-        childSessionId: address.childSessionId,
-      }).then((result) => {
-        if (!result.ok) console.error(`side-tasks: discard failed: ${result.error.message}`)
+      const request = { parentSessionId, childSessionId: address.childSessionId }
+      enqueuePendingDiscard(storage, request)
+      void remote.discard(request).then((result) => {
+        if (result.ok) removePendingDiscard(storage, request)
+        else console.error(`side-tasks: discard failed: ${result.error.message}`)
       }).catch((error: unknown) => {
         console.error(`side-tasks: discard failed: ${String(error)}`)
       })
@@ -99,26 +129,43 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
         async createSideTask(prompt: string) {
           const result = await createSideTask(parentSessionId, prompt)
           if (result.ok) {
-            scope.sidebarRight.openResource(sideTaskChatAddress(result.value), {
-              kind: SIDE_CHAT_KIND,
-              preferNewPane: true,
-            })
+            // The header action's session can differ from the currently mounted
+            // one when a create round-trip overlaps a session switch.
+            const tabs = scope.sidebarRight as unknown as {
+              openResourceIn(
+                sessionId: SessionId,
+                address: string,
+                options: { kind: string; preferNewPane: boolean },
+              ): void
+              tabsIn?(sessionId: SessionId): readonly { contentId: string }[]
+            }
+            const address = sideTaskChatAddress(result.value)
+            try {
+              tabs.openResourceIn(parentSessionId, address, {
+                kind: SIDE_CHAT_KIND,
+                preferNewPane: true,
+              })
+              await Promise.resolve()
+              const placed = typeof tabs.tabsIn !== 'function'
+                || tabs.tabsIn(parentSessionId).some(tab => tab.contentId === address)
+              if (!placed) throw new Error('the side-chat tab was not committed')
+            } catch (error: unknown) {
+              await discardCreatedChild(parentSessionId, result.value.childSessionId)
+              throw new Error(`The side chat was created but could not be opened: ${String(error)}`)
+            }
           }
           return result
         },
       }),
     }, SideTaskAction))
     })
+    await ui
   } catch (error: unknown) {
+    await ui?.dispose().catch(() => undefined)
     await unmountRemote().catch(() => undefined)
     console.error(`side-tasks: UI registration failed: ${String(error)}`)
     return async () => {}
   }
-  // Do not await the UI fiber: a missing optional UI service must never keep
-  // the whole Web boot pending. Its failure is isolated to this feature.
-  void Promise.resolve(ui).catch((error: unknown) => {
-    console.error(`side-tasks: UI registration failed: ${String(error)}`)
-  })
   return async () => {
     await ui.dispose()
     await unmountRemote()

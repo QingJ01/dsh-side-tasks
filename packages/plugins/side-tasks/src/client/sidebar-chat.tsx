@@ -8,7 +8,7 @@ import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
 import type { ConversationSnapshot, ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SidebarRightTabDefinition, SidebarRightTabInfo } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import { Button, IconNewChatOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   PropsLocale,
@@ -42,6 +42,15 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' {
   }
 }
 
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface RemoteErrorDetailsMap {
+    /** The side-chat resource URL is malformed. */
+    'sidechat/invalid-address': Record<string, never>
+    /** The child session could not be retained by the browser. */
+    'sidechat/retain-failed': Record<string, never>
+  }
+}
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface ResourceProtocolMap {
     sidechat: SideChatResource
@@ -58,14 +67,33 @@ function waitForAbort(signal: AbortSignal): Promise<void> {
   })
 }
 
-function sideChatResourceProvider(sessions: ISessions): ResourceProvider<'sidechat'> {
+export function sideChatResourceProvider(sessions: ISessions): ResourceProvider<'sidechat'> {
   return {
     protocol: 'sidechat',
     async *open(resourceAddress, { signal }) {
       const address = parseSideTaskChatAddress(resourceAddress)
-      if (address === undefined) throw new Error(`side-tasks: invalid chat resource "${resourceAddress}"`)
+      if (address === undefined) {
+        yield {
+          ok: false,
+          error: new RemoteError('sidechat/invalid-address', `Invalid side-chat resource "${resourceAddress}".`, {}),
+        }
+        return
+      }
       if (signal.aborted) return
-      const reference = sessions.retain(address, { source: 'sidebarChat', signal })
+      let reference: SessionReference
+      try {
+        reference = sessions.retain(address, { source: 'sidebarChat', signal })
+      } catch (error: unknown) {
+        yield {
+          ok: false,
+          error: new RemoteError(
+            'sidechat/retain-failed',
+            error instanceof Error ? error.message : String(error),
+            {},
+          ),
+        }
+        return
+      }
       try {
         yield { ok: true, value: { address, reference } }
         await waitForAbort(signal)
@@ -201,6 +229,21 @@ export function SideChatStartPage({
   )
 }
 
+type SideChatTitleProps =
+  PropsRuntime<'sidebar.right.pane.tab.title'> & PropsLocale<typeof NS>
+
+/** Live chip label; the static tab title remains the fallback. */
+function SideChatTitle({ useTabInfo, useSessions, t }: SideChatTitleProps) {
+  const { tab } = useTabInfo()
+  const parsed = parseSideTaskChatAddress(tab.contentId)
+  const label = useSessions((state: SessionListState) => {
+    if (parsed === undefined) return undefined
+    return state.projectionsBySession[parsed.parentSessionId]?.values.subagentCatalog
+      ?.find(entry => entry.id === parsed.childSessionId)?.label
+  })
+  return label === undefined ? t('empty.title') : sideTaskDisplayLabel(label)
+}
+
 type SideChatTabProps =
   PropsRuntime<'sidebar.right.pane.tab'> & PropsRenderSlots<typeof SIDE_CHAT_SLOT> & PropsLocale<typeof NS>
 
@@ -208,11 +251,17 @@ type SideChatResourceTabProps = Omit<SideChatTabProps, 'useTabInfo'> & {
   readonly tab: SidebarRightTabInfo['tab']
 }
 
-function SideChatResourceTab({ tab, useResource, SessionProvider, renderSlot }: SideChatResourceTabProps) {
+function SideChatResourceTab({ tab, useResource, SessionProvider, renderSlot, t }: SideChatResourceTabProps) {
   const resource = useResource<'sidechat'>(tab.contentId)
   return (
     <div style={{ display: 'flex', position: 'relative', width: '100%', height: '100%', minWidth: 0, minHeight: 0 }} data-side-chat="">
-      {resource.value === undefined ? null : (
+      {resource.value === undefined && resource.failure !== undefined ? (
+        <p role="alert" style={{ margin: 'auto', opacity: 0.8 }}>
+          {t('load.failed', { message: resource.failure.message })}
+        </p>
+      ) : resource.value === undefined ? (
+        <p style={{ margin: 'auto', opacity: 0.7 }}>{t('loading')}</p>
+      ) : (
         <SessionProvider session={resource.value.reference}>
           {renderSlot(SIDE_CHAT_SLOT, {})}
         </SessionProvider>
@@ -281,6 +330,11 @@ export function registerSideChat(
     locale: NS,
     children: { [SIDE_CHAT_SLOT]: { kind: 'single', scope: 'session' } },
   }, sideChatTab(createSideTask))), 'side-tasks: chat body')
+  ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({
+    name: 'sidebar.right.pane.tab.title',
+    key: SIDEBAR_CHAT_ID,
+    locale: NS,
+  }, SideChatTitle)), 'side-tasks: chat title')
   ctx.effect(() => ctx.slots.inject(SIDE_CHAT_SLOT, () => ctx.slots.register({
     name: SIDE_CHAT_SLOT,
     locale: NS,

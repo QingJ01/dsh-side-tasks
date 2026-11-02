@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
   createSideTaskLabel,
+  isSideTaskDescriptor,
   isSideTaskLabel,
   normalizeSideTaskPrompt,
   parseSideTaskChatAddress,
@@ -41,5 +42,19 @@ describe('side-task labels and addresses', () => {
       mode: 'continuable',
     })
     expect(parseSideTaskChatAddress(address.replace('sidechat', 'subagentchat'))).toBeUndefined()
+  })
+
+  it('authenticates descriptors by durable fields, independent of version', () => {
+    const descriptor = (version: number, provider: string, mode = 'continuable') => [{
+      type: 'subagent/descriptor',
+      data: { version, mode, provider, label: 'x' },
+    }]
+    expect(isSideTaskDescriptor(descriptor(3, 'side-task'), 0)).toBe(true)
+    expect(isSideTaskDescriptor(descriptor(2, 'side-task'), 0)).toBe(true)
+    expect(isSideTaskDescriptor(descriptor(999, 'side-task'), 0)).toBe(true)
+    expect(isSideTaskDescriptor(descriptor(3, 'fork'), 0)).toBe(false)
+    expect(isSideTaskDescriptor(descriptor(3, 'side-task', 'one-shot'), 0)).toBe(false)
+    expect(isSideTaskDescriptor([{ type: 'subagent/descriptor', data: null }], 0)).toBe(false)
+    expect(isSideTaskDescriptor(descriptor(3, 'side-task'), 1)).toBe(false)
   })
 })

@@ -9,9 +9,13 @@ function frameWithBuiltInSubagentPanel() {
   core.register({
     name: 'root',
     children: {
-      'sidebar.right.pane.tab': { kind: 'single', scope: 'session' },
-      'sidebar.chat.conversation': { kind: 'single', scope: 'session' },
+      'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session' },
     },
+  }, Comp)
+  core.register({
+    name: 'sidebar.right.pane.tab',
+    key: '@deepseek-ai/dsh-client-ui-subagent',
+    children: { 'sidebar.chat.conversation': { kind: 'single', scope: 'session' } },
   }, Comp)
   core.register({ name: 'sidebar.chat.conversation' }, Comp)
   return core
@@ -22,6 +26,7 @@ describe('right-sidebar slot ownership', () => {
     const core = frameWithBuiltInSubagentPanel()
     expect(() => core.register({
       name: 'sidebar.right.pane.tab',
+      key: 'dsh-side-tasks',
       children: { [SIDE_CHAT_SLOT]: { kind: 'single', scope: 'session' } },
     }, Comp)).not.toThrow()
     core.register({ name: SIDE_CHAT_SLOT }, Comp)
@@ -32,6 +37,7 @@ describe('right-sidebar slot ownership', () => {
     const core = frameWithBuiltInSubagentPanel()
     expect(() => core.register({
       name: 'sidebar.right.pane.tab',
+      key: 'legacy-side-chat',
       children: { 'sidebar.chat.conversation': { kind: 'single', scope: 'session' } },
     }, Comp)).toThrow(/already declared/)
   })

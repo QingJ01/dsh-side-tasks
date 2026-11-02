@@ -61,7 +61,6 @@ export class SideTaskService extends TypertRemoteService {
   /** Stop and archive one plugin-owned child when its tab closes. */
   @Remote('discard')
   async discard(
-    agent: Agent,
     request: DiscardSideTaskRequest,
     signal: AbortSignal,
   ): Promise<DiscardSideTaskResult> {
@@ -69,7 +68,8 @@ export class SideTaskService extends TypertRemoteService {
       this.ctx.subagents,
       this.ctx.workspaceRegistry,
       this.ctx.sessionQuery,
-      agent,
+      request.parentSessionId,
+      this.ctx.agents.get(request.parentSessionId),
       request.childSessionId,
       signal,
     )

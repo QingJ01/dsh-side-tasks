@@ -32,6 +32,24 @@ export function sideTaskDisplayLabel(label: string): string {
   return isSideTaskLabel(label) ? label.slice(SIDE_TASK_LABEL_PREFIX.length) : label
 }
 
+/**
+ * Authenticate a child from its own persisted creation descriptor. This is a
+ * deliberately local, version-tolerant structural check: resolving a peer's
+ * fold helper can select an older Harness copy whose descriptor version and
+ * parser no longer match the running Host.
+ */
+export function isSideTaskDescriptor(
+  events: readonly { readonly type: string; readonly data?: unknown }[],
+  inheritedEventCount: number,
+): boolean {
+  const descriptor = events.slice(inheritedEventCount).find(event => event.type === 'subagent/descriptor')
+  const data = descriptor?.data
+  return typeof data === 'object'
+    && data !== null
+    && (data as { mode?: unknown }).mode === 'continuable'
+    && (data as { provider?: unknown }).provider === 'side-task'
+}
+
 /** Encode an existing child as this plugin's right-sidebar chat resource. */
 export function sideTaskChatAddress(address: SideTaskAddress): string {
   const query = new URLSearchParams({

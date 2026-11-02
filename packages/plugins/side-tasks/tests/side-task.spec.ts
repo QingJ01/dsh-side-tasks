@@ -85,6 +85,7 @@ describe('discardSideTask', () => {
       { listChildren, drainChildren } as never,
       { archiveSession } as never,
       query as never,
+      parent.id,
       parent,
       'child-session' as SessionId,
       new AbortController().signal,
@@ -93,6 +94,30 @@ describe('discardSideTask', () => {
     expect(archiveSession).toHaveBeenCalledWith('child-session', { stopActivity: true })
     expect(dispose).toHaveBeenCalledOnce()
     expect(result).toEqual({ discarded: true })
+  })
+
+  it('archives when the parent Agent is offline', async () => {
+    const { parent } = fixture()
+    const listChildren = vi.fn(async () => [{
+      id: 'child-session' as SessionId,
+      createdAt: 1,
+      mode: 'continuable' as const,
+      label: `${SIDE_TASK_LABEL_PREFIX}investigate`,
+    }])
+    const drainChildren = vi.fn(async () => {})
+    const archiveSession = vi.fn(async () => {})
+    const { query } = queryFor('side-task')
+    await expect(discardSideTask(
+      { listChildren, drainChildren } as never,
+      { archiveSession } as never,
+      query as never,
+      parent.id,
+      undefined,
+      'child-session' as SessionId,
+      new AbortController().signal,
+    )).resolves.toEqual({ discarded: true })
+    expect(archiveSession).toHaveBeenCalledWith('child-session', { stopActivity: true })
+    expect(drainChildren).not.toHaveBeenCalled()
   })
 
   it('refuses a model-delegated child even when its label spoofs the prefix', async () => {
@@ -113,6 +138,7 @@ describe('discardSideTask', () => {
       subagents as never,
       { archiveSession } as never,
       query as never,
+      parent.id,
       parent,
       'other' as SessionId,
       new AbortController().signal,
