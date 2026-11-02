@@ -35,14 +35,18 @@ export class SideChatSettings {
   private readonly selections = new WeakMap<Agent, ModelSelectionRef>()
   private readonly installed = new Map<Agent, () => void>()
   private readonly contexts = new Map<Agent, () => void>()
+  private readonly attaching = new Map<Agent, { controller: AbortController; promise: Promise<undefined> }>()
   private readonly serial = new Map<SessionId, Promise<unknown>>()
+  private active = true
 
   constructor(private readonly ctx: Context) {
     ctx.on('agent/created', ({ agent }) => this.attach(agent))
     ctx.on('agent/disposed', ({ agent }) => { this.release(agent) })
     ctx.effect(() => () => {
-      for (const agent of [...this.installed.keys()]) this.release(agent)
-      for (const agent of [...this.contexts.keys()]) this.release(agent)
+      this.active = false
+      for (const agent of new Set([...this.installed.keys(), ...this.contexts.keys(), ...this.attaching.keys()])) {
+        this.release(agent)
+      }
     }, 'side-tasks: child settings middleware')
     for (const agent of ctx.agents.list()) this.attach(agent)
   }
@@ -63,7 +67,7 @@ export class SideChatSettings {
 
   /** Install before a resumed manager child admits its first model request. */
   restore(agent: Agent): void {
-    if (this.selections.has(agent) || !this.owned(agent)) return
+    if (!this.active || this.selections.has(agent) || !this.owned(agent)) return
     const events = agent.session.snapshotEvents()
     const own = events.slice(agent.session.inheritedEventCount)
     const picked = own.findLast(event => event.type === 'model/selection')
@@ -78,6 +82,8 @@ export class SideChatSettings {
   }
 
   private release(agent: Agent): void {
+    this.attaching.get(agent)?.controller.abort()
+    this.attaching.delete(agent)
     this.installed.get(agent)?.()
     this.installed.delete(agent)
     this.contexts.get(agent)?.()
@@ -92,18 +98,26 @@ export class SideChatSettings {
    */
   private attach(agent: Agent): Promise<undefined> | undefined {
     try {
-      if (!this.owned(agent)) return undefined
+      if (!this.active || !this.owned(agent)) return undefined
+      const pending = this.attaching.get(agent)
+      if (pending !== undefined) return pending.promise
       this.restore(agent)
       const parentSessionId = agent.session.header.parentSession
       if (parentSessionId === undefined || this.contexts.has(agent)) return undefined
-      const signal = AbortSignal.timeout(15_000)
-      return parentEvents(this.ctx, parentSessionId, signal).then((events) => {
+      const controller = new AbortController()
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)])
+      const promise = parentEvents(this.ctx, parentSessionId, signal).then((events) => {
+        if (!this.active || signal.aborted) return undefined
         const text = inheritedContextText(events)
         if (text !== undefined && !this.contexts.has(agent)) {
           this.contexts.set(agent, registerInheritedContext(agent.ctx, text))
         }
         return undefined
-      }).catch(() => undefined)
+      }).catch(() => undefined).finally(() => {
+        if (this.attaching.get(agent)?.controller === controller) this.attaching.delete(agent)
+      })
+      this.attaching.set(agent, { controller, promise })
+      return promise
     } catch {
       // A settings failure must never break creation of an unrelated Agent.
       return undefined

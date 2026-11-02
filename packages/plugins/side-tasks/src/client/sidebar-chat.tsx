@@ -77,6 +77,19 @@ export function sideChatResourceProvider(
   boundaries = new Map<SessionId, number>(),
   addresses = new Map<SessionId, SideTaskAddress>(),
 ): ResourceProvider<'sidechat'> {
+  const leases = new Map<SessionId, Set<SideTaskAddress>>()
+  const publish = (id: SessionId, retained: Set<SideTaskAddress>) => {
+    const latest = [...retained].at(-1)
+    if (latest === undefined) {
+      leases.delete(id)
+      addresses.delete(id)
+      boundaries.delete(id)
+    } else {
+      addresses.set(id, latest)
+      if (latest.contextThrough === undefined) boundaries.delete(id)
+      else boundaries.set(id, latest.contextThrough)
+    }
+  }
   return {
     protocol: 'sidechat',
     async *open(resourceAddress, { signal }) {
@@ -89,8 +102,6 @@ export function sideChatResourceProvider(
         return
       }
       if (signal.aborted) return
-      addresses.set(address.childSessionId, address)
-      if (address.contextThrough !== undefined) boundaries.set(address.childSessionId, address.contextThrough)
       let reference: SessionReference
       try {
         reference = sessions.retain(address, { source: 'sidebarChat', signal })
@@ -105,10 +116,17 @@ export function sideChatResourceProvider(
         }
         return
       }
+      const retained = leases.get(address.childSessionId) ?? new Set<SideTaskAddress>()
       try {
+        if (signal.aborted) return
+        retained.add(address)
+        leases.set(address.childSessionId, retained)
+        publish(address.childSessionId, retained)
         yield { ok: true, value: { address, reference } }
         await waitForAbort(signal)
       } finally {
+        retained.delete(address)
+        publish(address.childSessionId, retained)
         reference.release()
       }
     },

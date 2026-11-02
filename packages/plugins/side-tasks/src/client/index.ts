@@ -137,6 +137,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
           )
           if (existing !== undefined) {
             scope.sidebarRight.focus(existing.tabId as never)
+            if (!scope.sidebarRight.isExpanded()) scope.sidebarRight.toggleExpanded()
             return
           }
           scope.sidebarRight.openTab(SIDE_CHAT_KIND, { preferNewPane: false })

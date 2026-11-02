@@ -50,6 +50,7 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 | Create a side chat | Allocates one continuable subagent child and opens its `sidechat` resource on the right. |
 | Close the corresponding tab | Calls `sideTasks/discard`, archives the child with work stopped, and drains it best-effort. No ordinary session is created. |
 | Merely collapse the right sidebar | Does not close the tab or trigger archival. |
+| Click **Side chat** again | Expands and focuses the existing tab without creating another child; an already visible sidebar stays open. |
 | Task completes | Updates the child transcript. The current Harness cold-resume path may also notify and wake the parent. |
 
 **Deletion semantics:** Harness exposes durable archival, not physical deletion of session logs through its public plugin API. This plugin uses that supported lifecycle and never edits session files directly. The UI describes this as ending and removing the temporary chat, not erasing its files.
@@ -59,6 +60,8 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 **Known limitations:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it. Close writes a browser-local pending marker before its Remote request and retries it on later activations, bounded to five attempts and seven days, skipping children still retained elsewhere. Losing that browser storage remains a window where archival can be missed.
 
 The inherited background is the parent's latest completed-turn conversation: user input and assistant replies, excluding an in-flight turn and non-human context injections. It is read again when a child is cold-resumed, so a resumed side chat inherits the parent's progress up to that moment. No parent turn is copied into the child's transcript, so the child's messages and token usage stay its own.
+
+Here, a completed turn means one with a recorded `turn/end`, including failed or stopped turns, not only successful responses. Unloading the plugin or disposing a child cancels pending context reads and prevents late results from installing new context.
 
 This is a bounded text snapshot, not a clone of the parent's complete model input: it keeps at most the latest 120 non-empty human/assistant messages and then the last 100,000 characters. Images, tool results, and compaction summaries are not included. It reads the original conversation log rather than the compacted model-visible surface, so replaced historical messages can still appear. While the same child Agent remains live, later parent messages are not continuously synchronized; each cold resume takes a new snapshot, including the first send after an idle side chat was prepared.
 

@@ -173,4 +173,40 @@ describe('child-only native composer settings', () => {
     settings.restore(child as never)
     expect(child.ctx.on).toHaveBeenCalledTimes(3)
   })
+
+  it.each(['unload', 'agent/disposed'])('cancels an in-flight context read on %s and ignores late completion', async (reason) => {
+    const { ctx, child, unload } = fixture()
+    const context = vi.fn(() => vi.fn())
+    const current = { ...child, ctx: { on: vi.fn(() => vi.fn()), get: () => ({ getContextOrder: () => 120, context }) } }
+    const observedDispose = vi.fn()
+    const events = [
+      { type: 'user/message', data: { source: { kind: 'user' }, content: 'late parent text' } },
+      { type: 'turn/end', data: {} },
+    ]
+    let finish!: (value: { events: typeof events; [Symbol.dispose]: () => void }) => void
+    const query = { observeSession: vi.fn((_id: string, _options: { signal: AbortSignal }) =>
+      new Promise<{ events: typeof events; [Symbol.dispose]: () => void }>(resolve => { finish = resolve })) }
+    ctx.agents.get = () => undefined
+    const originalGet = ctx.get
+    ctx.get = name => name === 'sessionQuery' ? query as never : originalGet(name)
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as (event: { agent: unknown }) => Promise<void>
+    const disposed = ctx.on.mock.calls.find(([name]) => name === 'agent/disposed')![1] as (event: { agent: unknown }) => void
+    const pending = created({ agent: current })
+    expect(created({ agent: current })).toBe(pending)
+    expect(query.observeSession).toHaveBeenCalledOnce()
+    if (reason === 'unload') unload[0]!()
+    else disposed({ agent: current })
+    expect(query.observeSession.mock.calls[0]![1].signal.aborted).toBe(true)
+    finish({ events, [Symbol.dispose]: observedDispose })
+    await pending
+    expect(observedDispose).toHaveBeenCalledOnce()
+    expect(context).not.toHaveBeenCalled()
+
+    new SideChatSettings(ctx as never)
+    const reloaded = ctx.on.mock.calls.filter(([name]) => name === 'agent/created').at(-1)![1] as typeof created
+    const restored = reloaded({ agent: { ...current, ctx: { ...current.ctx } } })
+    finish({ events, [Symbol.dispose]: observedDispose })
+    await restored
+    expect(context).toHaveBeenCalledOnce()
+  })
 })

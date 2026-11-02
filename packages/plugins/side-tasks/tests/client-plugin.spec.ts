@@ -71,6 +71,8 @@ describe('client creation and close lifecycle', () => {
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
     const openTab = vi.fn()
     const focus = vi.fn()
+    let expanded = true
+    const toggleExpanded = vi.fn(() => { expanded = !expanded })
     const refreshProjections = vi.fn()
     const openTabs: { sessionId: SessionId; tabId: string; kind: string; contentId: string }[] = []
     const registerCloseHandler = vi.fn((_kind: string, handler: typeof closeHandler) => {
@@ -119,7 +121,8 @@ describe('client creation and close lifecycle', () => {
           })),
         },
       },
-      sidebarRight: { openTab, focus, registerCloseHandler, openTabs: { getSnapshot: () => openTabs } },
+      sidebarRight: { openTab, focus, isExpanded: () => expanded, toggleExpanded,
+        registerCloseHandler, openTabs: { getSnapshot: () => openTabs } },
     }
     await apply(ctx as never)
 
@@ -151,6 +154,15 @@ describe('client creation and close lifecycle', () => {
     openTabs.push({ sessionId: 'parent' as SessionId, tabId: 'tab-1', kind: SIDE_CHAT_KIND, contentId: SIDE_CHAT_PAGE_ADDRESS })
     actions.openSideChat()
     expect(focus).toHaveBeenCalledWith('tab-1')
+    expect(openTab).toHaveBeenCalledOnce()
+    expect(toggleExpanded).not.toHaveBeenCalled()
+    expanded = false
+    actions.openSideChat()
+    expect(expanded).toBe(true)
+    expect(toggleExpanded).toHaveBeenCalledOnce()
+    actions.openSideChat()
+    expect(expanded).toBe(true)
+    expect(toggleExpanded).toHaveBeenCalledOnce()
     expect(openTab).toHaveBeenCalledOnce()
     openTabs.length = 0
 
