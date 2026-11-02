@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { TYPERT } from '../lib/typert.host.js'
 import { TYPERT_REMOTE } from '../lib/typert.remote-client.js'
@@ -26,6 +27,13 @@ describe('Typert Remote artifacts', () => {
       childSessionId: 'child',
       mode: 'continuable',
     })
+  })
+
+  it('does not depend on the hoist-sensitive protocol remote-info subpath', () => {
+    const host = readFileSync(new URL('../lib/typert.host.js', import.meta.url), 'utf8')
+    const client = readFileSync(new URL('../lib/typert.remote-client.js', import.meta.url), 'utf8')
+    expect(host).not.toContain('@deepseek-ai/dsh-typert-protocol/remote-info')
+    expect(client).not.toContain('@deepseek-ai/dsh-typert-protocol/remote-info')
   })
 
   it('validates the close request and result', () => {
