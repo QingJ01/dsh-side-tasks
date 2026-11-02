@@ -1,101 +1,153 @@
-/** Host service for user-created, context-inheriting side tasks. */
+/** Host service for independent right-sidebar side chats. */
 import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { AgentOptions, ModelSelection } from '@deepseek-ai/dsh-agent'
+import { randomUUID } from 'node:crypto'
+import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-session-query'
-import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-workspace'
-import { createBlankSideTask } from './blank.ts'
-import { SideTaskProvider } from './provider.ts'
+import { createBlankSideTask, type SideTaskSource } from './blank.ts'
 import { SideChatSettings } from './settings.ts'
-import { discardSideTask, startSideTask } from './side-task.ts'
+import { discardSideTask } from './side-task.ts'
+import { inheritedContextText } from './context.ts'
 import type {
-  ConfigureSideTaskRequest,
-  ConfigureSideTaskResult,
-  CreateSideTaskRequest,
-  DiscardSideTaskRequest,
-  DiscardSideTaskResult,
-  SideTaskAddress,
+  ConfigureSideTaskRequest, ConfigureSideTaskResult, CreateSideTaskRequest,
+  DiscardSideTaskRequest, DiscardSideTaskResult, SideTaskAddress, SideTaskCapabilities,
 } from './types.ts'
 
 export type {
-  ConfigureSideTaskRequest,
-  ConfigureSideTaskResult,
-  CreateSideTaskRequest,
-  DiscardSideTaskRequest,
-  DiscardSideTaskResult,
-  SideTaskAddress,
+  ConfigureSideTaskRequest, ConfigureSideTaskResult, CreateSideTaskRequest,
+  DiscardSideTaskRequest, DiscardSideTaskResult, SideTaskAddress, SideTaskCapabilities,
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
-  interface Context {
-    sideTasks: SideTaskService
+  interface Context { sideTasks: SideTaskService }
+}
+
+interface Observation {
+  header: { readonly parentSession?: SessionId; readonly origin?: string; readonly cwd?: string; readonly agentPreset?: string }
+  events: readonly SessionEvent[]
+  inheritedEventCount: number
+  projections?: { values: {
+    modelSelection?: { next?: ModelSelection | null }
+    workingDirectory?: string | null
+    agentPreset?: string | null
+  } }
+  [Symbol.dispose](): void
+}
+interface Query { observeSession(id: SessionId, options: { projectionMode: 'all'; signal: AbortSignal }): Promise<Observation> }
+interface Presets { resolve(id?: string): Promise<{ readonly id: string }>; mount(ctx: Context, id?: string): Promise<{ readonly id: string }> }
+interface Controller {
+  readonly supportsSideChatSessions?: boolean
+  prompt(request: {
+    readonly requestId: SessionRequestId
+    readonly sessionId: SessionId
+    readonly mode: 'queue' | 'steer'
+    readonly content: readonly [{ readonly type: 'text'; readonly text: string }]
+  }, signal: AbortSignal): Promise<{ readonly accepted: boolean }>
+}
+interface PermissionPresets {
+  readonly defaultPreset: string
+  resolve(name: string): {
+    readonly sandbox: 'read-only' | 'workspace-write' | 'danger-full-access'
+    readonly approval: 'ask' | 'never'
   }
 }
 
-/** Remote namespace (`ctx.remote.sideTasks`) and host lifecycle owner. */
 export class SideTaskService extends TypertRemoteService {
-  static inject = ['agents', 'subagents', 'workspaceRegistry', 'sessionQuery']
-
+  static inject = ['agents', 'workspaceRegistry', 'sessionQuery', 'agentPresets', 'sessionController', 'permissionPresets']
   private readonly settings: SideChatSettings
 
   constructor(ctx: Context) {
     super(ctx, 'sideTasks')
     this.settings = new SideChatSettings(ctx)
-    ctx.effect(() => ctx.subagents.registerProvider(new SideTaskProvider()), 'side-tasks: provider')
   }
 
-  /**
-   * Create one child without creating or selecting an ordinary session.
-   * @param agent - exact live parent resolved from the session wire identity.
-   * @param request - first user message for the child.
-   * @param signal - RPC cancellation before the initial message is accepted.
-   * @returns durable address used to open the child in the right sidebar.
-   */
-  @Remote('create')
-  async create(
-    agent: Agent,
-    request: CreateSideTaskRequest,
-    signal: AbortSignal,
-  ): Promise<SideTaskAddress> {
-    if (agent.session.header.origin === 'subagent') throw new Error('Side chats require a top-level parent.')
-    if (this.ctx.workspaceRegistry.archivedSessionIds.includes(agent.id)) throw new Error('An archived parent cannot create a side chat.')
-    if (request.prompt.trim() === '') {
-      return await createBlankSideTask(
-        this.ctx.agents, agent, this.ctx.subagents.resolveMaxDepth(), signal,
+  @Remote({ name: 'create', resources: { session: (sourceSessionId: SessionId) => sourceSessionId } })
+  async create(sourceSessionId: SessionId, request: CreateSideTaskRequest, signal: AbortSignal): Promise<SideTaskAddress> {
+    const controller = this.ctx.get('sessionController') as Controller | undefined
+    const presets = this.ctx.get('agentPresets') as Presets | undefined
+    const permissionPresets = this.ctx.get('permissionPresets') as PermissionPresets | undefined
+    if (controller?.supportsSideChatSessions !== true || typeof controller.prompt !== 'function'
+      || presets === undefined || permissionPresets === undefined) {
+      throw new Error('This Harness does not support independent side chats.')
+    }
+    signal.throwIfAborted()
+    if (this.ctx.workspaceRegistry.archivedSessionIds.includes(sourceSessionId)) throw new Error('An archived parent cannot create a side chat.')
+    const observed = await (this.ctx.sessionQuery as Query).observeSession(sourceSessionId, { projectionMode: 'all', signal })
+    try {
+      const { header, events, inheritedEventCount } = observed
+      if (header.parentSession !== undefined || header.origin !== undefined) throw new Error('Side chats require a root ordinary Session.')
+      const projected = observed.projections?.values
+      const modelSelection = projected?.modelSelection?.next
+      const model: AgentOptions | undefined = modelSelection === null || modelSelection === undefined
+        ? undefined
+        : { ...modelSelection }
+      const permissionEvents = events.slice(inheritedEventCount)
+      const permissionPreset = permissionEvents.findLast(event => event.type === 'permission/preset')
+      const sandboxMode = permissionEvents.findLast(event => event.type === 'sandbox/mode')
+      const approvalPolicy = permissionEvents.findLast(event => event.type === 'approval/policy')
+      const defaultPermission = permissionPresets.resolve(
+        permissionPreset?.type === 'permission/preset' ? permissionPreset.data.preset : permissionPresets.defaultPreset,
+      )
+      const permissions = {
+        preset: permissionPreset?.type === 'permission/preset' ? permissionPreset.data.preset : permissionPresets.defaultPreset,
+        sandbox: sandboxMode?.type === 'sandbox/mode' ? sandboxMode.data.mode : defaultPermission?.sandbox,
+        approval: approvalPolicy?.type === 'approval/policy' ? approvalPolicy.data.policy : defaultPermission?.approval,
+      }
+      const resolvedPreset = await presets.resolve(projected?.agentPreset ?? header.agentPreset)
+      const source: SideTaskSource = {
+        id: sourceSessionId,
+        ...((projected?.workingDirectory ?? header.cwd) === undefined || (projected?.workingDirectory ?? header.cwd) === null
+          ? {} : { cwd: projected?.workingDirectory ?? header.cwd }),
+        preset: resolvedPreset.id,
+        permissions,
+        ...(model === undefined ? {} : { model }),
+      }
+      const contextText = inheritedContextText(events)
+      const address = await createBlankSideTask(
+        this.ctx.agents, presets, source, contextText, request.prompt, signal,
         id => this.ctx.workspaceRegistry.archiveSession(id, { stopActivity: true }),
       )
+      const prompt = request.prompt.trim()
+      if (prompt !== '') {
+        try {
+          const result = await controller.prompt({
+            requestId: randomUUID() as SessionRequestId,
+            sessionId: address.childSessionId,
+            mode: 'queue',
+            content: [{ type: 'text', text: prompt }],
+          }, signal)
+          if (!result.accepted) throw new Error('The native Session controller did not accept the initial side-chat prompt.')
+        } catch (error: unknown) {
+          await this.ctx.workspaceRegistry.archiveSession(address.childSessionId, { stopActivity: true })
+            .catch((archiveError: unknown) => console.error(`side-tasks: failed to archive rejected creation: ${String(archiveError)}`))
+          throw error
+        }
+      }
+      return address
+    } catch (error) {
+      throw error
+    } finally {
+      observed[Symbol.dispose]()
     }
-    return await startSideTask(
-      this.ctx.subagents,
-      agent,
-      request.prompt,
-      signal,
-      this.ctx.subagents.resolveMaxDepth(),
-    )
   }
 
-  /** Apply a user-selected model or permission preset to this child only. */
-  @Remote('configure')
+  @Remote('capabilities')
+  capabilities(): SideTaskCapabilities {
+    return { supportsSideChatSessions: (this.ctx.get('sessionController') as Controller | undefined)?.supportsSideChatSessions === true }
+  }
+
+  @Remote({ name: 'configure', resources: { session: (request: ConfigureSideTaskRequest) => [request.parentSessionId, request.childSessionId] } })
   configure(request: ConfigureSideTaskRequest, signal: AbortSignal): Promise<ConfigureSideTaskResult> {
     return this.settings.configure(request, signal)
   }
 
-  /** Stop and archive one plugin-owned child when its tab closes. */
-  @Remote('discard')
-  async discard(
-    request: DiscardSideTaskRequest,
-    signal: AbortSignal,
-  ): Promise<DiscardSideTaskResult> {
-    return await this.settings.exclusive(request.childSessionId, () => discardSideTask(
-      this.ctx.subagents,
-      this.ctx.workspaceRegistry,
-      this.ctx.sessionQuery,
-      request.parentSessionId,
-      this.ctx.agents.get(request.parentSessionId),
-      request.childSessionId,
-      signal,
-    ))
+  @Remote({ name: 'discard', resources: { session: (request: DiscardSideTaskRequest) => [request.parentSessionId, request.childSessionId] } })
+  discard(request: DiscardSideTaskRequest, signal: AbortSignal): Promise<DiscardSideTaskResult> {
+    return this.settings.exclusive(request.childSessionId, () =>
+      discardSideTask(this.ctx.agents, this.ctx.workspaceRegistry, this.ctx.sessionQuery, request, signal))
   }
 }
 

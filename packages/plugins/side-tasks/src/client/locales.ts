@@ -18,6 +18,9 @@ export const zh = {
   'empty.description': '侧边聊天是临时聊天，关闭标签后会结束并归档。',
   'guide.description': '继承当前会话上下文，创建临时侧边聊天',
   'create.blocked': '当前会话是子会话或已归档，不能创建侧边聊天。',
+  'legacy.notice': '这是旧版侧边聊天。请重启 Harness，然后创建新侧边聊天；也可以安全关闭此旧会话。',
+  'host.missing': '当前 Harness Host 未安装独立侧边聊天适配器。',
+  'client.missing': '当前 Harness Client 未安装独立侧边聊天适配器。',
 } as const
 
 export type SideTaskKey = keyof typeof zh
@@ -40,4 +43,7 @@ export const en: Record<SideTaskKey, string> = {
   'empty.description': 'Side chat is temporary. Closing its tab ends and archives it.',
   'guide.description': 'Start a temporary side chat with this session’s context',
   'create.blocked': 'This session is a child or is archived, so it cannot start a side chat.',
+  'legacy.notice': 'This is a legacy side chat. Restart Harness and create a new side chat, or safely close this old session.',
+  'host.missing': 'This Harness Host does not have the independent side-chat adapter installed.',
+  'client.missing': 'This Harness Client does not have the independent side-chat adapter installed.',
 }

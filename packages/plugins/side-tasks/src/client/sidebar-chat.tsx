@@ -4,7 +4,6 @@ import { SideChatPreparations } from './preparation.ts'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ISessions, SessionEventWindow, SessionListState, SessionReference, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-subagent/client'
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
 import type { ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SidebarRightTabDefinition, SidebarRightTabInfo } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
@@ -38,7 +37,7 @@ const SIDEBAR_CHAT_ADDRESS = 'dsh-resource://sidechat/session/'
 
 interface SideChatResource {
   readonly address: SideTaskAddress
-  readonly reference: SessionReference
+  readonly reference?: SessionReference
 }
 
 declare module '@deepseek-ai/dsh-api-session-controller/client' {
@@ -73,7 +72,7 @@ function waitForAbort(signal: AbortSignal): Promise<void> {
 }
 
 export function sideChatResourceProvider(
-  sessions: ISessions,
+  sessions: Pick<ISessions, 'retain'>,
   boundaries = new Map<SessionId, number>(),
   addresses = new Map<SessionId, SideTaskAddress>(),
 ): ResourceProvider<'sidechat'> {
@@ -102,9 +101,14 @@ export function sideChatResourceProvider(
         return
       }
       if (signal.aborted) return
+      if (address.mode === 'continuable') {
+        yield { ok: true, value: { address } }
+        await waitForAbort(signal)
+        return
+      }
       let reference: SessionReference
       try {
-        reference = sessions.retain(address, { source: 'sidebarChat', signal })
+        reference = sessions.retain(address.childSessionId, { source: 'sidebarChat', signal })
       } catch (error: unknown) {
         yield {
           ok: false,
@@ -182,7 +186,6 @@ function ConversationSlotPanel({
   const session = useSession((value: SessionSnapshot) => value)
   const own = useSideChatOwn(value => value)
   const settling = session.openState === 'loading'
-    || (session.subagent?.address.mode === 'continuable' && session.subagent.parentAvailable === undefined)
   const hero = !own && !session.promptAttempted && !session.running && session.openState === 'open'
   return (
     <>
@@ -250,8 +253,7 @@ function SideChatTitle({ useTabInfo, useSessions, t }: SideChatTitleProps) {
   const parsed = parseSideTaskChatAddress(tab.contentId)
   const label = useSessions((state: SessionListState) => {
     if (parsed === undefined) return undefined
-    return state.projectionsBySession[parsed.parentSessionId]?.values.subagentCatalog
-      ?.find(entry => entry.id === parsed.childSessionId)?.label
+    return state.byId[parsed.childSessionId]?.title
   })
   return label === undefined || isBlankSideTaskLabel(label)
     ? t('empty.title')
@@ -276,9 +278,15 @@ function SideChatResourceTab({ tab, useResource, SessionProvider, renderSlot, t 
       ) : resource.value === undefined ? (
         <p style={{ margin: 'auto', opacity: 0.7 }}>{t('loading')}</p>
       ) : (
-        <SessionProvider session={resource.value.reference}>
-          {renderSlot(SIDE_CHAT_SLOT, {})}
-        </SessionProvider>
+        resource.value.address.mode === 'continuable' ? (
+          <p role="status" style={{ margin: 'auto', maxWidth: 420, padding: 24, textAlign: 'center' }}>
+            {t('legacy.notice')}
+          </p>
+        ) : resource.value.reference === undefined ? null : (
+          <SessionProvider session={resource.value.reference}>
+            {renderSlot(SIDE_CHAT_SLOT, {})}
+          </SessionProvider>
+        )
       )}
     </div>
   )
@@ -288,7 +296,10 @@ function sideChatTab(preparations: SideChatPreparations) {
   return function SideChatTab(props: SideChatTabProps) {
     const { useTabInfo, useSessions, useWorkspaces, ...rest } = props
     const { tab } = useTabInfo()
-    const isChild = useSessions((state: SessionListState) => state.byId[props.sessionId]?.origin === 'subagent')
+    const isChild = useSessions((state: SessionListState) => {
+      const origin = state.byId[props.sessionId]?.origin
+      return origin === 'subagent' || origin === 'sidechat'
+    })
     const isArchived = useWorkspaces(
       (state: { archivedSessionIds: readonly SessionId[] }) => state.archivedSessionIds.includes(props.sessionId),
     )
@@ -310,7 +321,7 @@ function sideChatTab(preparations: SideChatPreparations) {
 /** Register the independent resource, tab body, guide entry, and temporary empty state. */
 export function registerSideChat(
   ctx: Context,
-  sessions: ISessions,
+  sessions: Pick<ISessions, 'retain' | 'list' | 'binding'>,
   t: TranslateNS<typeof NS>,
   preparations: SideChatPreparations,
   addresses = new Map<SessionId, SideTaskAddress>(),
@@ -325,11 +336,7 @@ export function registerSideChat(
     title: (address) => {
       const parsed = parseSideTaskChatAddress(address)
       if (parsed === undefined) return t('empty.title')
-      const catalog = sessions.list.getSnapshot()
-        .projectionsBySession[parsed.parentSessionId]?.values.subagentCatalog
-      const label = catalog?.find(
-        (entry: { id: SessionId; label?: string }) => entry.id === parsed.childSessionId,
-      )?.label
+      const label = sessions.list.getSnapshot().byId[parsed.childSessionId]?.title
       return label === undefined || isBlankSideTaskLabel(label)
         ? t('empty.title')
         : sideTaskDisplayLabel(label)

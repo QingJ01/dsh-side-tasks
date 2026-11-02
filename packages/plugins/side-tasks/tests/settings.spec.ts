@@ -1,212 +1,212 @@
 import { describe, expect, it, vi } from 'vitest'
+import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { SideChatSettings } from '../src/settings.ts'
 
-const parentId = 'parent' as SessionId
-const childId = 'child' as SessionId
-const old = { provider: 'test', model: 'old' }
-const next = { provider: 'test', model: 'next', reasoningEffort: 'high' }
-
-function fixture({ live = true, owned = true } = {}) {
-  const events = [
-    { type: 'subagent/descriptor', data: { version: 3, mode: 'continuable', provider: owned ? 'side-task' : 'fork' } },
-    { type: 'model/selection', data: old },
-  ]
-  const parent = { id: parentId, session: { append: vi.fn() } }
-  const child = {
-    id: childId, options: { ...old },
-    session: { header: { origin: 'subagent', parentSession: parentId }, inheritedEventCount: 0,
-      snapshotEvents: () => events,
-      append: vi.fn((type: string, data: never) => { events.push({ type, data }) }),
-    },
-    ctx: { on: vi.fn(() => vi.fn()) },
+vi.mock('@deepseek-ai/dsh-session', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session')>()
+  return {
+    ...actual,
+    appendPluginRecord: (session: { append(type: string, data: unknown): void }, type: string, data: unknown) =>
+      session.append(type, data),
   }
-  const dispose = vi.fn(async () => {})
-  const execute = vi.fn(async () => ({ result: { kind: 'success' } }))
+})
+
+const sourceId = 'source' as SessionId
+const childId = 'child' as SessionId
+const selected = { provider: 'test', model: 'new', reasoningEffort: ReasoningEffortId('high') }
+
+function fixture(options: { live?: boolean; sourceArchived?: boolean; sourceFailure?: Error } = {}) {
+  const descriptor = {
+    type: 'plugin:side-tasks/descriptor', ignorable: true,
+    data: { version: 1, sourceSessionId: sourceId, childSessionId: childId, label: 'side chat' },
+  }
+  const events: object[] = [descriptor, {
+    type: 'model/selection', data: { provider: 'test', model: 'old' },
+  }]
+  const append = vi.fn((type: string, data: unknown) => { events.push({ type, ignorable: true, data }) })
+  const context = vi.fn(() => vi.fn())
+  const child = {
+    id: childId,
+    options: { provider: 'test', model: 'old' },
+    session: {
+      header: { origin: 'sidechat', agentPreset: 'minimal' },
+      inheritedEventCount: 0,
+      snapshotEvents: () => events,
+      append,
+    },
+    ctx: {
+      on: vi.fn(() => vi.fn()),
+      get: (name: string) => name === 'systemPrompt'
+        ? { getContextOrder: () => 120, context }
+        : undefined,
+    },
+  }
+  const sourceEvents = [
+    { type: 'turn/start', data: {} },
+    { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'source prompt' }] } },
+    { type: 'assistant/message', data: { message: { content: [{ type: 'text', text: 'source reply' }] } } },
+    { type: 'turn/end', data: {} },
+    { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'unfinished' }] } },
+  ]
+  const observation = {
+    header: { origin: undefined, cwd: '/work' },
+    events: sourceEvents,
+    inheritedEventCount: 0,
+    [Symbol.dispose]: vi.fn(),
+  }
+  const observeSession = vi.fn(async (id: SessionId) => {
+    if (options.sourceFailure !== undefined) throw options.sourceFailure
+    if (id === childId) {
+      return {
+        header: child.session.header, events, inheritedEventCount: 0, [Symbol.dispose]: vi.fn(),
+      }
+    }
+    return observation
+  })
   const unload: (() => void)[] = []
+  const dispose = vi.fn(async () => {})
+  const agentPresets = { mount: vi.fn(async () => ({ id: 'minimal' })) }
+  const agents = {
+    list: () => [],
+    get: vi.fn((id: SessionId) => id === childId && options.live !== false ? child : undefined),
+    resume: vi.fn(async ({ setup }: { setup?: (ctx: object, agent: typeof child) => Promise<void> }) => {
+      await setup?.(child.ctx, child)
+      return { agent: child, dispose }
+    }),
+  }
   const ctx = {
     on: vi.fn(),
-    effect: (fn: () => () => void) => { unload.push(fn()); },
-    agents: { list: () => [], get: (id: string) => id === parentId ? parent : live ? child : undefined,
-      resume: vi.fn(async () => ({ agent: child, dispose })),
-    },
-    workspaceRegistry: { archivedSessionIds: [] as string[] },
-    subagents: { listChildren: async () => [{ id: childId, mode: 'continuable' }] },
-    sessionQuery: { observeSession: vi.fn(async () => ({ events, header: child.session.header, inheritedEventCount: 0, [Symbol.dispose]: () => {} })) },
+    effect: (effect: () => () => void) => { unload.push(effect()) },
+    agents,
+    workspaceRegistry: { archivedSessionIds: options.sourceArchived ? [sourceId] : [] },
+    sessionQuery: { observeSession },
     get: (name: string) => name === 'llm' ? {
       resolveModelInfo: vi.fn(async () => ({})),
-      resolveCallConfig: vi.fn(async (selection: unknown) => selection),
-    } : name === 'commands' ? { execute }
-      : name === 'permissionPresets' ? { resolve: vi.fn() } : undefined,
+      resolveCallConfig: vi.fn(async (value: unknown) => value),
+    } : name === 'commands' ? { execute: vi.fn(async () => ({ result: { kind: 'success' } })) }
+      : name === 'permissionPresets' ? { resolve: vi.fn() }
+        : name === 'agentPresets' ? agentPresets : undefined,
   }
   const settings = new SideChatSettings(ctx as never)
-  return { settings, ctx, child, parent, dispose, execute, events, unload }
+  return { settings, ctx, agents, child, events, append, context, observation, unload, dispose, agentPresets }
 }
 
-const modelRequest = { parentSessionId: parentId, childSessionId: childId, kind: 'model' as const, selection: next }
+const modelRequest = {
+  parentSessionId: sourceId, childSessionId: childId, kind: 'model' as const, selection: selected,
+}
 
-describe('child-only native composer settings', () => {
-  it('changes the live child route and modality options without touching its parent or disposing manager ownership', async () => {
-    const { settings, child, parent, dispose, ctx } = fixture()
+describe('side-chat settings and cold context', () => {
+  it('configures only the owned live child and preserves receiver identity', async () => {
+    const { settings, ctx, agents, child, append, dispose } = fixture()
     await expect(settings.configure(modelRequest, new AbortController().signal)).resolves.toEqual({ configured: true })
-    expect(child.session.append).toHaveBeenCalledWith('model/selection', next)
-    expect(child.options).toMatchObject(next)
-    expect(parent.session.append).not.toHaveBeenCalled()
-    expect(ctx.agents.resume).not.toHaveBeenCalled()
+    expect(append).toHaveBeenCalledWith('model/selection', selected)
+    expect(child.options).toMatchObject(selected)
+    expect(agents.get).toHaveBeenCalledWith(childId)
+    expect(agents.get).not.toHaveBeenCalledWith(sourceId)
+    expect(ctx.sessionQuery.observeSession).toHaveBeenCalledWith(childId, expect.objectContaining({ projectionMode: 'none' }))
     expect(dispose).not.toHaveBeenCalled()
-    expect(child.ctx.on).toHaveBeenCalledWith('agent/request', expect.any(Function))
   })
 
-  it('releases an idle temporary writer before resolving', async () => {
-    const { settings, ctx, dispose } = fixture({ live: false })
+  it('resumes and mounts only a cold child before changing its settings', async () => {
+    const { settings, agents, child, dispose, agentPresets } = fixture({ live: false })
     await settings.configure(modelRequest, new AbortController().signal)
-    expect(ctx.agents.resume).toHaveBeenCalledWith(expect.objectContaining({ resumeSessionId: childId }))
+    expect(agents.resume).toHaveBeenCalledWith(expect.objectContaining({ resumeSessionId: childId }))
+    expect(agentPresets.mount).toHaveBeenCalledWith(child.ctx, 'minimal')
     expect(dispose).toHaveBeenCalledOnce()
+    expect(agents.get).not.toHaveBeenCalledWith(sourceId)
   })
 
-  it('runs permission selection against the exact child', async () => {
-    const { settings, child, execute, parent } = fixture()
-    const signal = new AbortController().signal
-    await settings.configure({ parentSessionId: parentId, childSessionId: childId, kind: 'permission', preset: 'workspace-write' }, signal)
-    expect(execute).toHaveBeenCalledWith(child, '/permission workspace-write', [], signal)
-    expect(parent.session.append).not.toHaveBeenCalled()
-  })
-
-  it('rejects another provider and archived children before any mutation', async () => {
-    const bad = fixture({ owned: false })
-    await expect(bad.settings.configure(modelRequest, new AbortController().signal)).rejects.toThrow('not owned')
-    expect(bad.child.session.append).not.toHaveBeenCalled()
-    const archived = fixture()
-    archived.ctx.workspaceRegistry.archivedSessionIds.push(childId)
-    await expect(archived.settings.configure(modelRequest, new AbortController().signal)).rejects.toThrow('archived')
-    expect(archived.child.session.append).not.toHaveBeenCalled()
-  })
-
-  it('joins concurrent native materialization without disposing the manager writer', async () => {
-    const { settings, ctx, child, parent, dispose } = fixture({ live: false })
-    let materialized = false
-    ctx.agents.get = (id: string) => id === parentId ? parent : materialized ? child : undefined
-    ctx.agents.resume.mockImplementationOnce(async () => {
-      materialized = true
-      throw new Error('agent child is already registered')
+  it.each([
+    ['wrong origin', { origin: 'subagent' }, 'sidechat'],
+    ['parent lineage', { origin: 'sidechat', parentSession: sourceId }, 'sidechat'],
+  ])('rejects forged ownership with %s before mutation', async (_name, header) => {
+    const { settings, append, ctx } = fixture()
+    const original = ctx.sessionQuery.observeSession
+    ctx.sessionQuery.observeSession = vi.fn(async id => {
+      const value = await original(id)
+      return { ...value, header }
     })
-    await settings.configure(modelRequest, new AbortController().signal)
-    expect(child.options).toMatchObject(next)
-    expect(dispose).not.toHaveBeenCalled()
+    await expect(settings.configure(modelRequest, new AbortController().signal)).rejects.toThrow('not owned')
+    expect(append).not.toHaveBeenCalled()
   })
 
-  it('removes old routing middleware when the plugin unloads with a surviving manager child', () => {
-    const { settings, ctx, child, unload, events } = fixture()
-    settings.restore(child as never)
-    const oldDisposers = child.ctx.on.mock.results.map(result => result.value)
-    unload[0]!()
-    for (const dispose of oldDisposers) expect(dispose).toHaveBeenCalledOnce()
-    events.push({ type: 'model/selection', data: next })
-    const reloaded = new SideChatSettings(ctx as never)
-    reloaded.restore(child as never)
-    expect(child.options).toMatchObject(next)
-    expect(child.ctx.on).toHaveBeenCalledTimes(6)
-  })
-
-  it('does not append a duplicate selection when the same model is chosen again', async () => {
-    const { settings, child } = fixture()
-    const request = { parentSessionId: parentId, childSessionId: childId, kind: 'model' as const,
-      selection: { provider: 'test', model: 'old' } }
-    await settings.configure(request, new AbortController().signal)
-    expect(child.session.append.mock.calls.filter(([type]) => type === 'model/selection')).toHaveLength(0)
-    expect(child.options).toMatchObject({ provider: 'test', model: 'old' })
-  })
-
-  it.each([true, false])('injects completed parent replies and refreshes only on cold resume (live parent: %s)', async (liveParent) => {
-    const { ctx, child, parent } = fixture()
-    const parentEvents = [
-      { type: 'turn/start', data: {} },
-      { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: '暗号是 ORCA-77' }] } },
-      { type: 'assistant/message', data: { turn: 0, step: 0, stream: [], message: {
-        id: 'reply-0', role: 'assistant', source: { kind: 'model', provider: 'test', model: 'old' },
-        content: [{ type: 'text', text: 'PARENT_REPLY_7241' }],
-      } } },
-      { type: 'turn/end', data: {} },
-      { type: 'turn/start', data: {} },
-      { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'NEXT_PARENT' }] } },
-    ]
-    const context = vi.fn((_contribution: { name: string; order: number; text: () => string }) => vi.fn())
-    const makeChild = () => ({ ...child, ctx: { on: vi.fn(() => vi.fn()), get: (name: string) => name === 'systemPrompt'
-      ? { getContextOrder: () => 120, context } : undefined } })
-    const observedDispose = vi.fn()
-    const query = { observeSession: vi.fn(async () => ({ events: parentEvents, [Symbol.dispose]: observedDispose })) }
-    const originalGet = ctx.get
-    ctx.get = name => name === 'sessionQuery' ? query as never : originalGet(name)
-    ctx.agents.get = (id: string) => id === parentId && liveParent
-      ? { ...parent, session: { ...parent.session, snapshotEvents: () => parentEvents } }
-      : undefined
-    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as (event: { agent: unknown }) => Promise<void>
-    const disposed = ctx.on.mock.calls.find(([name]) => name === 'agent/disposed')![1] as (event: { agent: unknown }) => void
-    const first = makeChild()
-    await created({ agent: first })
-    expect(context).toHaveBeenCalledOnce()
-    const initial = context.mock.calls[0]![0]
-    expect(initial).toMatchObject({ name: 'side-task:parent-context', order: 121 })
-    expect(initial.text()).toContain('User:\n暗号是 ORCA-77')
-    expect(initial.text()).toContain('Assistant:\nPARENT_REPLY_7241')
-    expect(initial.text()).not.toContain('NEXT_PARENT')
-
-    parentEvents.push({ type: 'turn/end', data: {} })
-    expect(initial.text()).not.toContain('NEXT_PARENT')
-    disposed({ agent: first })
-    expect(context.mock.results[0]!.value).toHaveBeenCalledOnce()
-    await created({ agent: makeChild() })
-    expect(context).toHaveBeenCalledTimes(2)
-    expect(context.mock.calls[1]![0].text()).toContain('NEXT_PARENT')
-    expect(context.mock.calls[1]![0].text()).toContain('Assistant:\nPARENT_REPLY_7241')
-    expect(child.session.append).not.toHaveBeenCalled()
-    expect(parent.session.append).not.toHaveBeenCalled()
-    expect(query.observeSession).toHaveBeenCalledTimes(liveParent ? 0 : 2)
-    expect(observedDispose).toHaveBeenCalledTimes(liveParent ? 0 : 2)
-  })
-
-  it('restores the durable user model on a later manager-created Agent', () => {
-    const { settings, child, events } = fixture()
-    events.push({ type: 'model/selection', data: next })
-    settings.restore(child as never)
-    expect(child.options).toMatchObject(next)
-    settings.restore(child as never)
-    expect(child.ctx.on).toHaveBeenCalledTimes(3)
-  })
-
-  it.each(['unload', 'agent/disposed'])('cancels an in-flight context read on %s and ignores late completion', async (reason) => {
-    const { ctx, child, unload } = fixture()
-    const context = vi.fn(() => vi.fn())
-    const current = { ...child, ctx: { on: vi.fn(() => vi.fn()), get: () => ({ getContextOrder: () => 120, context }) } }
-    const observedDispose = vi.fn()
-    const events = [
-      { type: 'user/message', data: { source: { kind: 'user' }, content: 'late parent text' } },
-      { type: 'turn/end', data: {} },
-    ]
-    let finish!: (value: { events: typeof events; [Symbol.dispose]: () => void }) => void
-    const query = { observeSession: vi.fn((_id: string, _options: { signal: AbortSignal }) =>
-      new Promise<{ events: typeof events; [Symbol.dispose]: () => void }>(resolve => { finish = resolve })) }
-    ctx.agents.get = () => undefined
-    const originalGet = ctx.get
-    ctx.get = name => name === 'sessionQuery' ? query as never : originalGet(name)
-    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as (event: { agent: unknown }) => Promise<void>
-    const disposed = ctx.on.mock.calls.find(([name]) => name === 'agent/disposed')![1] as (event: { agent: unknown }) => void
-    const pending = created({ agent: current })
-    expect(created({ agent: current })).toBe(pending)
-    expect(query.observeSession).toHaveBeenCalledOnce()
-    if (reason === 'unload') unload[0]!()
-    else disposed({ agent: current })
-    expect(query.observeSession.mock.calls[0]![1].signal.aborted).toBe(true)
-    finish({ events, [Symbol.dispose]: observedDispose })
-    await pending
-    expect(observedDispose).toHaveBeenCalledOnce()
-    expect(context).not.toHaveBeenCalled()
-
+  it('refreshes bounded source context on attach and persists the exact model-visible text first', async () => {
+    const { ctx, child, append, context, observation } = fixture()
     new SideChatSettings(ctx as never)
-    const reloaded = ctx.on.mock.calls.filter(([name]) => name === 'agent/created').at(-1)![1] as typeof created
-    const restored = reloaded({ agent: { ...current, ctx: { ...current.ctx } } })
-    finish({ events, [Symbol.dispose]: observedDispose })
-    await restored
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await created({ agent: child })
+    const stored = append.mock.calls.find(([type]) => type === 'plugin:side-tasks/context')?.[1] as { text: string }
+    expect(stored.text).toContain('source prompt')
+    expect(stored.text).toContain('source reply')
+    expect(stored.text).not.toContain('unfinished')
     expect(context).toHaveBeenCalledOnce()
+    expect(context.mock.calls[0]![0].text()).toBe(stored.text)
+    expect(observation[Symbol.dispose]).toHaveBeenCalledOnce()
+  })
+
+  it('registers persisted context before waiting for a cold source refresh', async () => {
+    const { ctx, child, events, context, observation } = fixture()
+    events.push({
+      type: 'plugin:side-tasks/context', ignorable: true,
+      data: { version: 1, sourceSessionId: sourceId, text: 'durable child context' },
+    })
+    let finish!: (value: typeof observation) => void
+    ctx.sessionQuery.observeSession = vi.fn(() => new Promise(resolve => { finish = resolve }) as never)
+    new SideChatSettings(ctx as never)
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    const pending = created({ agent: child })
+    await Promise.resolve()
+    expect(context).toHaveBeenCalledOnce()
+    expect(context.mock.calls[0]![0].text()).toBe('durable child context')
+    finish(observation)
+    await pending
+    expect(context).toHaveBeenCalledTimes(2)
+    expect(context.mock.results[0]!.value).toHaveBeenCalledOnce()
+  })
+
+  it('uses the child-owned recorded context when the source is archived', async () => {
+    const { ctx, child, events, context } = fixture({ sourceArchived: true })
+    events.push({
+      type: 'plugin:side-tasks/context', ignorable: true,
+      data: { version: 1, sourceSessionId: sourceId, text: 'recorded context' },
+    })
+    new SideChatSettings(ctx as never)
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await created({ agent: child })
+    expect(ctx.sessionQuery.observeSession).not.toHaveBeenCalled()
+    expect(context.mock.calls[0]![0].text()).toBe('recorded context')
+  })
+
+  it('surfaces genuine source read failures instead of registering stale context as fresh', async () => {
+    const { ctx, child, context } = fixture({ sourceFailure: new Error('source store unavailable') })
+    new SideChatSettings(ctx as never)
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await expect(created({ agent: child })).rejects.toThrow('source store unavailable')
+    expect(context).not.toHaveBeenCalled()
+  })
+
+  it('cancels an in-flight source read on unload and ignores its late result', async () => {
+    const { ctx, child, context, unload } = fixture()
+    let finish!: (value: {
+      header: typeof child.session.header
+      events: object[]
+      inheritedEventCount: number
+      [Symbol.dispose](): void
+    }) => void
+    ctx.sessionQuery.observeSession = vi.fn(() => new Promise(resolve => { finish = resolve }) as never)
+    const settings = new SideChatSettings(ctx as never)
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    const pending = created({ agent: child })
+    await Promise.resolve()
+    unload[0]!()
+    finish({ header: child.session.header, events: [], inheritedEventCount: 0, [Symbol.dispose]: vi.fn() })
+    await pending
+    expect(context).not.toHaveBeenCalled()
   })
 })

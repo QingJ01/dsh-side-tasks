@@ -99,9 +99,13 @@ describe('client creation and close lifecycle', () => {
         },
       },
       resources: { register: vi.fn(() => () => {}) },
+      uiWorkspace: { supportsSideChatSessions: true },
       sidebarRightTabs: { register: vi.fn(() => () => {}) },
       remote: { $mount: mountRemote, sideTasks: { create, discard } },
       sessions: {
+        retain: vi.fn(),
+        retainInfo: vi.fn(),
+        binding: vi.fn(),
         refreshProjections,
         list: {
           getSnapshot: vi.fn(() => ({
@@ -143,7 +147,7 @@ describe('client creation and close lifecycle', () => {
       parentSessionId: 'parent' as SessionId,
       childSessionId: 'existing' as SessionId,
       mode: 'continuable',
-    }))).toBe('Existing investigation')
+    }))).toBe('empty.title')
     const actions = registration!.definition.inject('parent' as SessionId)
     actions.openSideChat()
     expect(openTab).toHaveBeenCalledWith(SIDE_CHAT_KIND, { preferNewPane: false })

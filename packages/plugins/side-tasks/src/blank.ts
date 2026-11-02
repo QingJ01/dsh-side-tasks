@@ -1,84 +1,85 @@
-import type {} from '@deepseek-ai/dsh-api-session-controller'
 import { randomUUID } from 'node:crypto'
-import type { Agent, AgentRegistry } from '@deepseek-ai/dsh-agent'
+import { appendPluginRecord } from '@deepseek-ai/dsh-session'
+import type { Context } from '@deepseek-ai/cordis'
+import type { Agent, AgentOptions, AgentRegistry } from '@deepseek-ai/dsh-agent'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import {
-  appendDelegatedPolicyOverrides, applyChildComposition, captureDelegatedPolicyOverrides,
-  childSessionMeta, resolveChildAgentOptions, resolveChildDepth,
-} from '@deepseek-ai/dsh-subagent'
 import { createSideTaskLabel, SIDE_TASK_BLANK_LABEL } from './shared.ts'
-import { SIDE_TASK_PROVIDER } from './provider.ts'
-import type { SideTaskAddress } from './types.ts'
+import type { SideTaskAddress, SideTaskContextRecord, SideTaskDescriptor } from './types.ts'
 
-/** Prepare durable continuation state, then release the writer before the UI can send.
- * The first native composer submission cold-resumes this child through the
- * subagent manager. Keeping the creation AgentHandle alive would collide with
- * that manager's agents.resume and leave the prompt rejected.
- */
+export interface SideTaskSource {
+  readonly id: SessionId
+  readonly cwd?: string
+  readonly preset?: string
+  readonly model?: AgentOptions
+  readonly permissions?: {
+    readonly preset?: string
+    readonly sandbox?: 'read-only' | 'workspace-write' | 'danger-full-access'
+    readonly approval?: 'ask' | 'never'
+  }
+}
+
+interface Presets {
+  resolve(id?: string): Promise<{ readonly id: string }>
+  mount(ctx: Context, id?: string): Promise<{ readonly id: string }>
+}
+
 export async function createBlankSideTask(
   agents: Pick<AgentRegistry, 'create'>,
-  parent: Agent,
-  maxDepth: number | undefined,
+  presets: Presets,
+  source: SideTaskSource,
+  contextText: string | undefined,
+  prompt: string,
   signal: AbortSignal,
   archiveFailed: (id: SessionId) => Promise<void>,
 ): Promise<SideTaskAddress> {
   signal.throwIfAborted()
-  const depth = resolveChildDepth(parent, maxDepth)
-  const options = resolveChildAgentOptions(parent, undefined, depth)
-  const policy = captureDelegatedPolicyOverrides(parent)
-  const permissionPresets = parent.ctx.get('permissionPresets') as {
-    current(session: Agent['session']): string
-    set(session: Agent['session'], preset: string): void
-  } | undefined
-  const parentPreset = permissionPresets?.current(parent.session)
-  const label = createSideTaskLabel(SIDE_TASK_BLANK_LABEL)
-  const cwd = parent.session.header.cwd
+  const label = createSideTaskLabel(prompt.trim() === '' ? SIDE_TASK_BLANK_LABEL : prompt)
   const childId = randomUUID() as SessionId
+  const selectedPreset = await presets.resolve(source.preset)
   const handle = await agents.create({
     sessionId: childId,
-    parentAgent: parent,
-    // No parent events are seeded: the side chat keeps a clean transcript and
-    // its own usage, and receives the parent conversation as prompt context.
-    meta: childSessionMeta(parent, depth, false),
-    agentOptions: options,
+    meta: {
+      ...(source.cwd === undefined ? {} : { cwd: source.cwd }),
+      // rc.5's published type omits the patched same-version origin literal.
+      origin: 'sidechat' as never,
+      agentPreset: selectedPreset.id,
+    },
+    ...(source.model === undefined ? {} : { agentOptions: source.model }),
     signal,
-    setup: async (childCtx, child) => {
-      await applyChildComposition(childCtx, parent, {})
-      if (cwd !== undefined) {
-        const workingDirectory = childCtx.get('workingDirectory') as {
-          set(agent: Agent, path: string, signal: AbortSignal): Promise<void>
-        } | undefined
-        await workingDirectory?.set(child, cwd, signal)
+    setup: async (childCtx, child: Agent) => {
+      await presets.mount(childCtx, selectedPreset.id)
+      const descriptor: SideTaskDescriptor = {
+        version: 1, sourceSessionId: source.id, childSessionId: childId, label,
       }
-      child.session.append('subagent/descriptor', {
-        version: 3,
-        mode: 'continuable',
-        provider: SIDE_TASK_PROVIDER,
-        label,
-        ...(options.provider === undefined ? {} : { agentProvider: options.provider }),
-        ...(options.model === undefined ? {} : { agentModel: options.model }),
-        ...(options.reasoningEffort === undefined ? {} : { agentReasoningEffort: options.reasoningEffort }),
-      })
-      appendDelegatedPolicyOverrides(child.session, policy)
-      // A user-opened side chat starts with the parent's explicit menu preset;
-      // subsequent user choices belong solely to this child's own log.
-      if (parentPreset !== undefined && parentPreset !== 'custom') permissionPresets?.set(child.session, parentPreset)
-      if (options.provider !== undefined && options.model !== undefined) child.session.append('model/selection', {
-        provider: options.provider, model: options.model,
-        ...(options.reasoningEffort === undefined ? {} : { reasoningEffort: options.reasoningEffort }),
-      })
+      if (source.model?.provider !== undefined && source.model.model !== undefined) {
+        child.session.append('model/selection', {
+          provider: source.model.provider,
+          model: source.model.model,
+          ...(source.model.reasoningEffort === undefined ? {} : { reasoningEffort: source.model.reasoningEffort }),
+        })
+      }
+      if (source.permissions?.preset !== undefined) {
+        child.session.append('permission/preset', { preset: source.permissions.preset })
+      }
+      if (source.permissions?.sandbox !== undefined) {
+        child.session.append('sandbox/mode', { mode: source.permissions.sandbox })
+      }
+      if (source.permissions?.approval !== undefined) {
+        child.session.append('approval/policy', { policy: source.permissions.approval })
+      }
+      appendPluginRecord(child.session, 'plugin:side-tasks/descriptor', descriptor)
+      if (contextText !== undefined) {
+        const record: SideTaskContextRecord = {
+          version: 1, sourceSessionId: source.id, text: contextText,
+        }
+        appendPluginRecord(child.session, 'plugin:side-tasks/context', record)
+      }
     },
   })
-  const childCreatedAt = handle.agent.session.header.createdAt
   try {
-    // An idle Agent has never entered a turn: releasing it adds no synthetic
-    // user message or stopped turn. Await the full writer/store teardown.
     await handle.dispose()
     signal.throwIfAborted()
-    parent.session.append('subagent/catalog', {
-      version: 0, childId, childCreatedAt, mode: 'continuable', label,
-    })
-    return { parentSessionId: parent.id, childSessionId: childId, mode: 'continuable', contextThrough: -1 }
+    return { parentSessionId: source.id, childSessionId: childId, mode: 'independent', contextThrough: -1 }
   } catch (error: unknown) {
     await handle.dispose().catch(() => undefined)
     await archiveFailed(childId).catch(() => undefined)

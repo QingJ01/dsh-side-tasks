@@ -9,7 +9,6 @@
     "src/blank.ts",
     "src/context.ts",
     "src/settings.ts",
-    "src/provider.ts",
     "src/side-task.ts",
     "src/shared.ts",
     "src/types.ts"

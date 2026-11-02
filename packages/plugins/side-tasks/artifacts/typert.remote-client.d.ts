@@ -6,33 +6,34 @@ import type {
   CreateSideTaskRequest,
   DiscardSideTaskRequest,
   DiscardSideTaskResult,
+  SideTaskCapabilities,
   SideTaskAddress,
 } from 'dsh-side-tasks/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$736964655461736b73 {
-    create: (agentId: SessionId, request: CreateSideTaskRequest) => Promise<RemoteResult<SideTaskAddress>>
+    create: (sourceSessionId: SessionId, request: CreateSideTaskRequest) => Promise<RemoteResult<SideTaskAddress>>
+    capabilities: () => Promise<RemoteResult<SideTaskCapabilities>>
     configure: (request: ConfigureSideTaskRequest) => Promise<RemoteResult<ConfigureSideTaskResult>>
     discard: (request: DiscardSideTaskRequest) => Promise<RemoteResult<DiscardSideTaskResult>>
   }
   interface TypertRemoteMap {
-    'sideTasks/create': (agentId: SessionId, request: CreateSideTaskRequest) => Promise<RemoteResult<SideTaskAddress>>
+    'sideTasks/create': (sourceSessionId: SessionId, request: CreateSideTaskRequest) => Promise<RemoteResult<SideTaskAddress>>
+    'sideTasks/capabilities': () => Promise<RemoteResult<SideTaskCapabilities>>
     'sideTasks/configure': (request: ConfigureSideTaskRequest) => Promise<RemoteResult<ConfigureSideTaskResult>>
     'sideTasks/discard': (request: DiscardSideTaskRequest) => Promise<RemoteResult<DiscardSideTaskResult>>
   }
   interface TypertRemoteNamespaceMap {
     sideTasks: TypertRemoteNamespace$736964655461736b73
   }
-  interface TypertRemoteScopeMap {
-    'agent:sideTasks/create': (request: CreateSideTaskRequest) => Promise<RemoteResult<SideTaskAddress>>
-  }
 }
 
 export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'sideTasks/create': TypertRemoteMethod<{
-    readonly agentId: SessionId
+    readonly sourceSessionId: SessionId
     readonly request: CreateSideTaskRequest
   }, SideTaskAddress>
+  readonly 'sideTasks/capabilities': TypertRemoteMethod<{}, SideTaskCapabilities>
   readonly 'sideTasks/configure': TypertRemoteMethod<{ readonly request: ConfigureSideTaskRequest }, ConfigureSideTaskResult>
   readonly 'sideTasks/discard': TypertRemoteMethod<{
     readonly request: DiscardSideTaskRequest

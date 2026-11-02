@@ -11,7 +11,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type {} from '@deepseek-ai/dsh-client-ui-subagent/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type {
   DiscardSideTaskRequest,
@@ -32,11 +31,22 @@ import { SideChatPreparations } from './preparation.ts'
 import { en, NS, zh, type SideTaskKey } from './locales.ts'
 
 interface SideTasksRemote {
+  capabilities(): Promise<RemoteResult<{ readonly supportsSideChatSessions: boolean }>>
   create(parentSessionId: SessionId, request: { prompt: string }): Promise<RemoteResult<SideTaskAddress>>
   discard(request: DiscardSideTaskRequest): Promise<RemoteResult<DiscardSideTaskResult>>
 }
 
 type SideTaskRemote = ClientContext['remote'] & { sideTasks: SideTasksRemote }
+type SideChatSessions = Pick<ISessions, 'retain' | 'retainInfo' | 'list' | 'binding' | 'refreshProjections'>
+
+function isSideChatSessions(value: unknown): value is SideChatSessions {
+  if (typeof value !== 'object' || value === null) return false
+  return 'retain' in value && typeof value.retain === 'function'
+    && 'retainInfo' in value && typeof value.retainInfo === 'function'
+    && 'list' in value && typeof value.list === 'object'
+    && 'binding' in value && typeof value.binding === 'function'
+    && 'refreshProjections' in value && typeof value.refreshProjections === 'function'
+}
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -47,7 +57,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 // `remote.sideTasks` is intentionally absent here. It is awaited inside a
 // child injection so a Host-side registration failure disables this feature
 // instead of leaving the whole Web boot waiting forever.
-export const inject = ['slots', 'sessions', 'remote', 'locale', 'sidebarRight']
+export const inject = ['slots', 'sessions', 'remote', 'locale', 'sidebarRight', 'uiWorkspace']
 
 /** Register the header entry, side-chat tab type, and close lifecycle. */
 export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
@@ -68,21 +78,25 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   let ui: ReturnType<typeof ctx.inject> | undefined
   try {
     ui = ctx.inject(['resources', 'sidebarRightTabs', 'remote.sideTasks'], (scope) => {
-      const remote = (scope.remote as SideTaskRemote).sideTasks
+    const remote = (scope.remote as SideTaskRemote).sideTasks
+    const t = scope.locale.bind(NS)
     // Host and browser faces merge `Context.sessions` differently in one
     // standalone TypeScript project; the client injection owns ISessions.
-    const sessions = scope.sessions as unknown as ISessions
+    const candidate: unknown = scope.sessions
+    if (!isSideChatSessions(candidate)) throw new Error(t('client.missing'))
+    const sessions = candidate
+    const clientCapability = scope.uiWorkspace as typeof scope.uiWorkspace & { readonly supportsSideChatSessions?: boolean }
     const createSideTask = async (parentSessionId: SessionId, prompt: string) => {
-      const result = await remote.create(parentSessionId, { prompt })
-      if (result.ok) {
-        try {
-          // The tab title is captured at open time from the projected catalog.
-          // Let the new descriptor arrive before mounting the tab.
-          await sessions.refreshProjections(parentSessionId)
-        } catch (error: unknown) {
-          console.error(`side-tasks: projection refresh failed: ${String(error)}`)
-        }
+      if (clientCapability.supportsSideChatSessions !== true) {
+        throw new Error(t('client.missing'))
       }
+      if (typeof remote.capabilities !== 'function') throw new Error(t('host.missing'))
+      const hostCapabilities = await remote.capabilities()
+      if (!hostCapabilities.ok || hostCapabilities.value.supportsSideChatSessions !== true) {
+        throw new Error(t('host.missing'))
+      }
+      if (typeof remote.create !== 'function') throw new Error(t('host.missing'))
+      const result = await remote.create(parentSessionId, { prompt })
       return result
     }
 
@@ -99,7 +113,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     const preparations = new SideChatPreparations(createSideTask, discard)
     scope.effect(() => () => { preparations.dispose() }, 'side-tasks: pending creations')
     const addresses = new Map<SessionId, SideTaskAddress>()
-    registerSideChat(scope, sessions, scope.locale.bind(NS), preparations, addresses)
+    registerSideChat(scope, sessions, t, preparations, addresses)
     registerSideChatControls(scope, sessions, addresses, request => scope.remote.sideTasks.configure(request))
     void flushPendingDiscards(storage, request => remote.discard(request), {
       shouldSkip: request => sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0

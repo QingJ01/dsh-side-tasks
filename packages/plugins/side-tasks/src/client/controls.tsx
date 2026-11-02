@@ -40,7 +40,7 @@ function SideChatModelSeat(props: ModelSeatProps) {
   if (!props.active || props.nativeProps === undefined) return null
   return createElement(props.native, {
     ...props, ...props.nativeProps,
-    locked: state.removed || state.subagent?.parentAvailable !== true
+    locked: state.removed
       || state.pendingSubmissions.length > 0 || state.awaitingFirstTurn,
     renderSlot: (_name: string, owner: object, options?: unknown) =>
       props.renderSlot('dsh-side-tasks.model.label', owner, options as never),
@@ -71,7 +71,7 @@ function PermissionSeat({ native, ...props }: Record<string, unknown> & { native
  */
 export function registerSideChatControls(
   ctx: Context,
-  sessions: ISessions,
+  sessions: Pick<ISessions, 'binding' | 'refreshProjections'>,
   addresses: Map<SessionId, SideTaskAddress>,
   configure: Configure,
 ): void {
@@ -131,7 +131,7 @@ export function registerSideChatControls(
           const native = inject(base, sessionId) as unknown as NativeModelInjection
           const modelProps: NativeModelInjection = {
             ...native, available: true,
-            load: () => { (inject(base, address.parentSessionId) as unknown as NativeModelInjection).load() },
+            load: native.load,
             select: async selection => {
               native.directory.update(state => { state.status = 'selecting'; state.pending = selection; state.error = null })
               try {

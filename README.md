@@ -2,7 +2,7 @@
 
 [中文文档](README.zh.md)
 
-A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It creates a continuable child with the current session's completed-turn context and opens it in an independent `sidechat` tab. Closing that tab stops and archives the child instead of leaving another ordinary session in the left list.
+A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It creates an independent root Session (`origin: sidechat`) visible only in the right sidebar. The source contributes bounded, one-way text context; it is never resumed or changed.
 
 ## Features
 
@@ -11,16 +11,17 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 - A native card on the right sidebar's Start page, using Harness's `IconNewChatOutlineRegular` and opening the same native side chat.
 - The side chat starts empty and keeps its own transcript and usage. The parent's completed-turn conversation is attached as per-agent prompt context, so the model continues with it while the footer counts only the side chat's own work.
 - A centered temporary-chat notice while the child is empty.
-- Blank preparation releases its AgentHandle before native input can cold-resume the child, preventing writer ownership collisions.
-- A dedicated `sidechat` resource and close handler; model-delegated subagent tabs are unaffected.
-- `sideTasks/discard` authenticates the persisted `side-task` provider descriptor, archives it with active work stopped, then best-effort drains the resident child.
-- Client activation is crash-isolated. `$mount` is local, so a disabled Host service is detected only when its first RPC fails.
+- New chats use Harness's native root controller and native Conversation/composer; each child owns its model, permissions, transcript, usage, and draft.
+- Completion leaves the chat available for follow-up. Only explicit close stops and archives; collapsing the sidebar is not close.
+- Context is limited to 120 human/assistant messages and 100,000 characters, refreshed on cold attach, and recorded on the child log rather than copied into its transcript.
+- Legacy continuable chats are never resumed or sent to. They show a migration notice; cold legacy sessions may be safely archived, while resident ones require a Harness restart first.
+- Creation requires both the Host `SessionController` and Client workspace side-chat capabilities. Missing or old capabilities fail visibly before the source is read or a child is created; there is no ordinary-session or subagent fallback.
 
 ## Requirements
 
 - DeepSeek Harness `>=0.2.1-rc.5 <0.3.0`
 - Node.js `>=24.9.0` for development
-- A Web or Desktop profile with subagent runtime, Session Query, Workspace registry, and `dsh-client-ui-subagent` (all standard in the shipped Web/Desktop composition)
+- A Web or Desktop profile built from Harness RC.5 with the side-chat adapter applied. The patch, safe apply helper, and bilingual instructions are in this repository's [`compat/`](compat/README.md); they are not included in the npm tarball. Stock RC.5 fails closed.
 
 ## Install
 
@@ -34,7 +35,18 @@ pnpm build
 dsh plugin --profile desktop add ./packages/plugins/side-tasks
 ```
 
-Use `--profile web` for a Web profile. Restart Harness after installation, then open a conversation and select **Side chat** in the header.
+The compatibility patch and safe apply helper are repository-distributed under [`compat/`](compat/README.md), not included in the npm tarball. Apply the patch to a clean pinned RC.5 Harness source checkout, then build the source profile. The helper requires the exact pinned commit and a clean tracked tree, checks the patch before applying it, and never downloads code or modifies an installed runtime:
+
+```sh
+node compat/apply-harness-sidechat.mjs /path/to/deepseek-harness
+cd /path/to/deepseek-harness
+pnpm install
+pnpm run build:artifacts
+pnpm run build:check
+pnpm dsh web
+```
+
+Use the Desktop source-profile command documented in `compat/README.md` for Desktop. Restart the patched profile after plugin installation.
 
 For local development after editing the same version, remove before adding; pnpm does not re-expand a same-version `file:` tarball:
 
@@ -47,24 +59,26 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 
 | Action | Result |
 | --- | --- |
-| Create a side chat | Allocates one continuable subagent child and opens its `sidechat` resource on the right. |
-| Close the corresponding tab | Calls `sideTasks/discard`, archives the child with work stopped, and drains it best-effort. No ordinary session is created. |
+| Create a side chat | Reads the source through query-only observation and creates an independent root Session in the right sidebar. |
+| Close the corresponding tab | Authenticates the child's own descriptor and origin, then stops and archives only that child. |
 | Merely collapse the right sidebar | Does not close the tab or trigger archival. |
 | Click **Side chat** again | Expands and focuses the existing tab without creating another child; an already visible sidebar stays open. |
 | Reload with an unsent draft | The native Session body remains mounted even for an empty chat, retaining Harness's browser-local draft persistence. |
-| Task completes | Updates the child transcript. The current Harness cold-resume path may also notify and wake the parent. |
+| Task completes | Leaves the child open and usable; follow-up remains available. Completion never archives it. |
 
 **Deletion semantics:** Harness exposes durable archival, not physical deletion of session logs through its public plugin API. This plugin uses that supported lifecycle and never edits session files directly. The UI describes this as ending and removing the temporary chat, not erasing its files.
 
-**Child settings:** Native menu components use a plugin-owned configuration endpoint authenticated against the child's parent lineage and own provider descriptor. Idle settings writers are disposed before sending is enabled; live manager-owned Agents are never disposed by a settings change. A resumed child restores its selected model and image-admission options from its own durable selection. Cold-resumed children still use the runtime's default parent settlement delivery, which may wake the parent.
+**Child settings:** Native menu components use a plugin-owned configuration endpoint authenticated against the child's independent origin and own descriptor. Idle settings writers are disposed before sending is enabled; live manager-owned Agents are never disposed by a settings change. Model/reasoning, preset, working directory, and effective permission choices are captured through query-only source reads and restored from the child's own durable records. The source is never resumed, activated, or written.
 
-**Known limitations:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it. Close writes a browser-local pending marker before its Remote request and retries it on later activations, bounded to five attempts and seven days, skipping children still retained elsewhere. Losing that browser storage remains a window where archival can be missed.
+**Legacy chats:** Existing continuable side-task addresses are recognized only to show a migration notice and offer a safe close path. A cold legacy child can be archived after a query-only ownership check. A resident legacy child is refused; restart the patched Harness first, then close it or create a new independent side chat. The plugin never resumes, configures, or sends to legacy children and does not rewrite historical logs.
+
+Close writes a browser-local pending marker before its Remote request and retries it on later activations, bounded to five attempts and seven days, skipping children still retained elsewhere. Losing that browser storage remains a window where archival can be missed.
 
 The inherited background is the parent's latest completed-turn conversation: user input and assistant replies, excluding an in-flight turn and non-human context injections. It is read again when a child is cold-resumed, so a resumed side chat inherits the parent's progress up to that moment. No parent turn is copied into the child's transcript, so the child's messages and token usage stay its own.
 
 Here, a completed turn means one with a recorded `turn/end`, including failed or stopped turns, not only successful responses. Unloading the plugin or disposing a child cancels pending context reads and prevents late results from installing new context.
 
-This is a bounded text snapshot, not a clone of the parent's complete model input: it keeps at most the latest 120 non-empty human/assistant messages and then the last 100,000 characters. Images, tool results, and compaction summaries are not included. It reads the original conversation log rather than the compacted model-visible surface, so replaced historical messages can still appear. While the same child Agent remains live, later parent messages are not continuously synchronized; each cold resume takes a new snapshot, including the first send after an idle side chat was prepared.
+This is a bounded text snapshot, not a clone of the parent's complete model input: it keeps at most the latest 120 non-empty human/assistant messages and ensures the full injected text, including its fixed prefix, stays within 100,000 characters. Images, tool results, and compaction summaries are not included. The exact injected text is recorded on the child before registration, not copied into the source or child transcript. It reads the original conversation log rather than the compacted model-visible surface, so replaced historical messages can still appear. While the same child Agent remains live, later parent messages are not continuously synchronized; a cold attach takes a fresh snapshot, using the child-owned record if the source is absent or archived.
 
 ## Development
 
@@ -75,7 +89,7 @@ pnpm test        # Build and run all tests
 pnpm --filter dsh-side-tasks pack --pack-destination dist
 ```
 
-The package has Host (`src/index.ts`) and browser (`src/client/index.ts`) faces. `src/client/sidebar-chat.tsx` owns the resource, empty state, and tab adapter. Remote metadata embeds the protocol's lazy info factory so profile-level protocol hoisting cannot break the subpath import, while retaining Agent lookup for creation, descriptor ownership checks for discard, and Zod codecs. Build artifacts are copied into `lib/` by `scripts/postbuild.mjs`.
+The package has Host (`src/index.ts`) and browser (`src/client/index.ts`) faces. `src/client/sidebar-chat.tsx` owns the resource, empty state, and tab adapter. Remote metadata embeds the protocol's lazy info factory so profile-level protocol hoisting cannot break the subpath import; authorization readers name the source or child Session IDs directly. Build artifacts are copied into `lib/` by `scripts/postbuild.mjs`.
 
 ## License
 

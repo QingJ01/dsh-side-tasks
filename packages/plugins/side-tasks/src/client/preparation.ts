@@ -26,10 +26,9 @@ export class SideChatPreparations {
     const key = this.key(parent, tab)
     const existing = this.entries.get(key)
     if (existing !== undefined) return existing.promise
-    const entry: Preparation = { promise: undefined as never, closed: false, transferred: false, discarded: false }
+    let entry: Preparation
     // Register synchronously before any transport or component callback runs.
-    this.entries.set(key, entry)
-    entry.promise = Promise.resolve().then(() => this.create(parent, '')).then(result => {
+    const promise = Promise.resolve().then(() => this.create(parent, '')).then(result => {
       if (result.ok) {
         entry.address = result.value
         if (entry.closed) this.discardOnce(entry)
@@ -39,6 +38,8 @@ export class SideChatPreparations {
       if (this.entries.get(key) === entry) this.entries.delete(key)
       throw error
     })
+    entry = { promise, closed: false, transferred: false, discarded: false }
+    this.entries.set(key, entry)
     return entry.promise
   }
 

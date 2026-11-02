@@ -27,7 +27,7 @@ describe('sidechat resource provider', () => {
     const address = sideTaskChatAddress({
       parentSessionId: 'parent' as SessionId,
       childSessionId: 'child' as SessionId,
-      mode: 'continuable',
+      mode: 'independent',
       contextThrough: -1,
     })
     const frame = await firstFrame(provider, address)
@@ -43,11 +43,17 @@ describe('sidechat resource provider', () => {
     const addresses = new Map<SessionId, SideTaskAddress>()
     const boundaries = new Map<SessionId, number>()
     const release = vi.fn()
-    const retain = vi.fn(() => ({ release }))
-    const provider = sideChatResourceProvider({ retain } as never, boundaries, addresses)
+    const sessions = {
+      retain: vi.fn(function (this: { retain: unknown }, _id: SessionId) {
+        expect(this).toBe(sessions)
+        return { release }
+      }),
+    }
+    const retain = sessions.retain
+    const provider = sideChatResourceProvider(sessions as never, boundaries, addresses)
     const child = 'child' as SessionId
     const address = { parentSessionId: 'parent' as SessionId, childSessionId: child,
-      mode: 'continuable' as const, contextThrough: -1 }
+      mode: 'independent' as const, contextThrough: -1 }
     const first = provider.open(sideTaskChatAddress(address), { signal: new AbortController().signal })
     const second = provider.open(sideTaskChatAddress(address), { signal: new AbortController().signal })
     expect((await first.next()).value).toMatchObject({ ok: true })
@@ -73,7 +79,7 @@ describe('sidechat resource provider', () => {
     const provider = sideChatResourceProvider({ retain: () => ({ release }) } as never, boundaries, addresses)
     const controller = new AbortController()
     const resource = provider.open(sideTaskChatAddress({ parentSessionId: 'parent' as SessionId,
-      childSessionId: 'child' as SessionId, mode: 'continuable', contextThrough: -1 }), { signal: controller.signal })
+      childSessionId: 'child' as SessionId, mode: 'independent', contextThrough: -1 }), { signal: controller.signal })
     await resource.next()
     const completion = resource.next()
     controller.abort()
@@ -81,5 +87,21 @@ describe('sidechat resource provider', () => {
     expect(release).toHaveBeenCalledOnce()
     expect(addresses.size).toBe(0)
     expect(boundaries.size).toBe(0)
+  })
+
+  it('shows legacy children without retaining, resuming, or routing them', async () => {
+    const retain = vi.fn()
+    const provider = sideChatResourceProvider({ retain } as never)
+    const address = sideTaskChatAddress({
+      parentSessionId: 'source' as SessionId,
+      childSessionId: 'legacy' as SessionId,
+      mode: 'continuable',
+    })
+    const frame = await firstFrame(provider, address)
+    expect(frame).toMatchObject({
+      ok: true,
+      value: { address: { mode: 'continuable', childSessionId: 'legacy' } },
+    })
+    expect(retain).not.toHaveBeenCalled()
   })
 })

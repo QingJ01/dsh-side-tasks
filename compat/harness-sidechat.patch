@@ -1,3 +1,44 @@
+diff --git a/docs/architecture.i18n.yaml b/docs/architecture.i18n.yaml
+index 8206f3e6..337eb30a 100644
+--- a/docs/architecture.i18n.yaml
++++ b/docs/architecture.i18n.yaml
+@@ -21,8 +21,8 @@
+   en: 20ef882e44b06a10
+   zh: c10c3934ed5570e9
+ /deepseek-harness-architecture/events:
+-  en: e89802f066e4955d
+-  zh: ea2fb4bef94e086d
++  en: 91f6cddd0b75fe80
++  zh: bd25f9ede3f50e97
+ /deepseek-harness-architecture/turn-flow:
+   en: e6402b28c0ed15fa
+   zh: 6c07be9047b42056
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 03d88148..d8581178 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -74,6 +74,8 @@ Events are the extension points, and picking the right domain is the first decis
+
+ AgentLoop awaits serial `agent/created` before queued work and rolls back failed initialization. Unload retains resources through Agent teardown; [agent-loop](../packages/core/agent-loop/README.md#understand-the-implementation) defines ordering.
+
++Sidechat roots cannot resume under parent Agents.
++
+ The [event map](event-producer-consumer.md) lists every event's producers and consumers.
+
+ ## Turn flow
+diff --git a/docs/architecture.zh.md b/docs/architecture.zh.md
+index 870fa1c9..b5eee727 100644
+--- a/docs/architecture.zh.md
++++ b/docs/architecture.zh.md
+@@ -76,6 +76,8 @@ Electron 使用 Electron Node 模式启动私有 Desktop Host。Host 调用共
+
+ AgentLoop 在启动已排队工作前等待串行 `agent/created`，初始化失败则回滚。卸载在 Agent teardown 期间保留所需资源；[agent-loop](../packages/core/agent-loop/README.zh.md#understand-the-implementation)定义顺序。
+
++Sidechat 根会话不能在父 Agent 下恢复。
++
+ [事件映射](event-producer-consumer.zh.md)列出每个事件的生产方与消费方。
+
+ <a id="turn-flow"></a>
 diff --git a/docs/persistence-catalog.i18n.yaml b/docs/persistence-catalog.i18n.yaml
 index 5b57d28f..35dee2f2 100644
 --- a/docs/persistence-catalog.i18n.yaml
@@ -495,7 +536,7 @@ index 5cd37161..020cf72b 100644
 --- a/docs/persistence-catalog.md
 +++ b/docs/persistence-catalog.md
 @@ -19,8 +19,8 @@ The [format references](persistence-changes/historical-formats/README.md) cover
- 
+
  | Root | Kind | SHA-256 | Resolved type |
  |---|---|---|---|
 -| `SessionHeader` | header | `1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445` | [`SessionHeader`](#persistence-type-sha256-1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445) |
@@ -508,142 +549,142 @@ index 5cd37161..020cf72b 100644
 @@ -160,7 +160,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  }[T]
  ```
- 
+
 -Sources: [`packages/core/session/src/types.ts:432`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:440`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:463`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:494`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:437`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:445`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:499`](../packages/core/session/src/types.ts)
- 
+
  ## Events
- 
+
 @@ -290,7 +290,7 @@ Source: [`packages/interaction/user-approval/src/index.ts:40`](../packages/inter
  'assistant/attempt': { turn: number; step: number; stream: AssistantStreamRecord[] }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:361`](../packages/core/session/src/types.ts)
- 
+
  <a id="assistantmessage--surface"></a>
- 
+
 @@ -320,7 +320,7 @@ Source: [`packages/core/session/src/types.ts:356`](../packages/core/session/src/
- 
+
  Types: [TokenUsage](subsystems/llm-streaming.md)
- 
+
 -Source: [`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
- 
+
  ### `command/*`
- 
+
 @@ -508,7 +508,7 @@ Source: [`packages/deliverables/tool-present/src/types.ts:15`](../packages/deliv
  }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
- 
+
  ### `feedback/*`
- 
+
 @@ -753,7 +753,7 @@ Source: [`packages/plan/plan-mode/src/index.ts:52`](../packages/plan/plan-mode/s
  'request/context': RequestContext
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:403`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:408`](../packages/core/session/src/types.ts)
- 
+
  <a id="requestheader--log-only"></a>
- 
+
 @@ -772,7 +772,7 @@ Source: [`packages/core/session/src/types.ts:403`](../packages/core/session/src/
  }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:391`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
- 
+
  ### `sandbox/*`
- 
+
 @@ -849,7 +849,7 @@ Source: [`packages/schedule/schedule/src/types.ts:365`](../packages/schedule/sch
  'session/end-seed': { inherited?: true }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:428`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts)
- 
+
  <a id="sessiontitle--log-only"></a>
- 
+
 @@ -911,7 +911,7 @@ Source: [`packages/session/session-log-deepseek/src/types.ts:81`](../packages/se
  'step/end': { turn: number; step: number }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:302`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
- 
+
  <a id="stepstart--log-only"></a>
- 
+
 @@ -922,7 +922,7 @@ Source: [`packages/core/session/src/types.ts:302`](../packages/core/session/src/
  'step/start': { turn: number; step: number }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:300`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts)
- 
+
  ### `subagent/*`
- 
+
 @@ -998,7 +998,7 @@ Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:17`](../p
  'system/message': { turn: number; step: number; message: SystemMessage }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:331`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
- 
+
  ### `team/*`
- 
+
 @@ -1091,7 +1091,7 @@ Source: [`packages/todo/tool-todo/src/types.ts:31`](../packages/todo/tool-todo/s
- 
+
  Types: [ToolCallId](subsystems/core.md)
- 
+
 -Source: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:367`](../packages/core/session/src/types.ts)
- 
+
  <a id="toolptc-dispatch--log-only"></a>
- 
+
 @@ -1172,7 +1172,7 @@ Source: [`packages/core/tools/src/types.ts:45`](../packages/core/tools/src/types
  }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:381`](../packages/core/session/src/types.ts)
- 
+
  ### `tool-workflow/*`
- 
+
 @@ -1252,7 +1252,7 @@ Source: [`packages/workflow/tool-workflow/src/types.ts:47`](../packages/workflow
- 
+
  Types: [TurnEndReason](subsystems/session.md)
- 
+
 -Source: [`packages/core/session/src/types.ts:298`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
- 
+
  <a id="turnstart--log-only"></a>
- 
+
 @@ -1268,7 +1268,7 @@ Source: [`packages/core/session/src/types.ts:298`](../packages/core/session/src/
  'turn/start': { turn: number }
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:294`](../packages/core/session/src/types.ts)
- 
+
  ### `user/*`
- 
+
 @@ -1287,7 +1287,7 @@ Source: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/
  'user/message': UserMessage
  ```
- 
+
 -Source: [`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
 +Source: [`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
- 
+
  ### `web/*`
- 
+
 @@ -2529,6 +2529,14 @@ SHA-256: `b765ee31033cea463863faf3fc6a0a1b85c47c6a2f13fe1ce833abe56105114b`
- 
+
  `"set"`
- 
+
 +<a id="persistence-type-sha256-eb2f5af9b3ad56d8aa89626cb99c199a0de00632c4bf26aa33f1b2ceae0f9bf5"></a>
 +
 +### `"sidechat"`
@@ -653,44 +694,44 @@ index 5cd37161..020cf72b 100644
 +`"sidechat"`
 +
  <a id="persistence-type-sha256-6ebcc2dbec9f2dabca9f668ae6d39e877899b180740570f453409db339221df3"></a>
- 
+
  ### `"skill-catalog"`
 @@ -3222,7 +3230,7 @@ Array of [`AssistantStreamRecord`](#persistence-type-sha256-33341aac09312300de5a
- 
+
  SHA-256: `ada310bf0bdb8fed51f3b56ea63f6ea6b18bbd587f04fccb63a14ab0b2a24e05`
- 
+
 -Sources: [`packages/core/session/src/types.ts:191`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:196`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -3398,7 +3406,7 @@ Attribution-only additions: `tmux-context`, `user-question-reply`, `working-dire
- 
+
  SHA-256: `9a930283b91d493d6347146f2475bb107294b379415ca02162354f46a64164f7`
- 
+
 -Sources: [`packages/core/session/src/types.ts:241`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:246`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -3650,7 +3658,7 @@ Sources: [`packages/goal/goal/src/domain.ts:24`](../packages/goal/goal/src/domai
  | `updatedAt` | required | `number` |
  | `version` | required | `1` |
- 
+
 -<a id="persistence-type-sha256-18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f"></a>
 +<a id="persistence-type-sha256-720f0354700d1adf1d56cd3c5d1ce708d285c770134578028a175c7141ba911f"></a>
- 
+
  <a id="persistence-type-headerline"></a>
- 
+
 @@ -3660,7 +3668,7 @@ Sources: [`packages/goal/goal/src/domain.ts:24`](../packages/goal/goal/src/domai
- 
+
  ### `HeaderLine`
- 
+
 -SHA-256: `18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f`
 +SHA-256: `720f0354700d1adf1d56cd3c5d1ce708d285c770134578028a175c7141ba911f`
- 
+
  Sources: [`packages/session/session-persistence-jsonl/src/format.ts:83`](../packages/session/session-persistence-jsonl/src/format.ts)
- 
+
 @@ -3672,7 +3680,7 @@ Sources: [`packages/session/session-persistence-jsonl/src/format.ts:83`](../pack
  | `delegationDepth` | required | `number` |
  | `id` | required | `string` |
@@ -701,51 +742,51 @@ index 5cd37161..020cf72b 100644
  | `type` | required | `"session"` |
  | `version` | required | `number` |
 @@ -4392,7 +4400,7 @@ Sources: [`packages/subagent/subagent/src/descriptor.ts:61`](../packages/subagen
- 
+
  SHA-256: `3bd652ebfa8726b3ce3937a4f1bd2759e02f86b3a08a20f9e41a8513656fbc5f`
- 
+
 -Sources: [`packages/core/session/src/types.ts:66`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:71`](../packages/core/session/src/types.ts)
- 
+
  One of:
- 
+
 @@ -4528,7 +4536,7 @@ Sources: [`packages/llm/llm/src/types.ts:448`](../packages/llm/llm/src/types.ts)
- 
+
  SHA-256: `b158f3ff6923714807c0d73882f0b05dc87f8fa85c9e90814852d48bbc866081`
- 
+
 -Sources: [`packages/core/session/src/types.ts:255`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:260`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -4547,7 +4555,7 @@ Sources: [`packages/core/session/src/types.ts:255`](../packages/core/session/src
- 
+
  SHA-256: `530da6c0267813bb4511af72883cc518834e624e3b3220a7062955fd57a788a6`
- 
+
 -Sources: [`packages/core/session/src/types.ts:274`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:279`](../packages/core/session/src/types.ts)
- 
+
  One of:
- 
+
 @@ -4629,7 +4637,7 @@ Sources: [`packages/schedule/schedule/src/types.ts:230`](../packages/schedule/sc
  | `operation` | required | `"delete"` |
  | `version` | required | `1` |
- 
+
 -<a id="persistence-type-sha256-1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445"></a>
 +<a id="persistence-type-sha256-b83636858c092bb763f8bc7cd561aa8d99172ea880e454b4290f4b8a273ca948"></a>
- 
+
  <a id="persistence-type-packagescoresessionsrctypestssessionheader"></a>
- 
+
 @@ -4637,9 +4645,9 @@ Sources: [`packages/schedule/schedule/src/types.ts:230`](../packages/schedule/sc
- 
+
  ### `SessionHeader`
- 
+
 -SHA-256: `1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445`
 +SHA-256: `b83636858c092bb763f8bc7cd561aa8d99172ea880e454b4290f4b8a273ca948`
- 
+
 -Sources: [`packages/core/session/src/types.ts:95`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:100`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -4649,7 +4657,7 @@ Sources: [`packages/core/session/src/types.ts:95`](../packages/core/session/src/
@@ -756,47 +797,47 @@ index 5cd37161..020cf72b 100644
 +| `origin` | optional | [`union (2 variants)`](#persistence-type-sha256-b7ac980f6de9d2359a16cd2a71bfa12276449f294a89543883f2cb3f6d840b81) |
  | `parentSession` | optional | `string` |
  | `version` | required | `4` |
- 
+
 @@ -4885,7 +4893,7 @@ Sources: [`packages/subagent/subagent/src/continuation-messages.ts:29`](../packa
- 
+
  SHA-256: `335e242de1fcc17b6ca920fc420d71bec2d76e53e37955c00948b65ab77f05c5`
- 
+
 -Sources: [`packages/core/session/src/types.ts:463`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts)
- 
+
  One of:
- 
+
 @@ -5330,7 +5338,7 @@ Sources: [`packages/workflow/tool-workflow/src/types.ts:14`](../packages/workflo
- 
+
  SHA-256: `1f8c126cfab3df812cd115cfc23e3256f0fa2383400f4ce91ecad313577e59b0`
- 
+
 -Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:202`](../packages/core/session/src/types.ts)
- 
+
  | kind | Form property | Other required fields | Full definition |
  |---|---|---|---|
 @@ -5350,7 +5358,7 @@ Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src
- 
+
  SHA-256: `f1687f982fa3d41ef29e159feed154ecd13af4dd209acaee16038f223f2e9402`
- 
+
 -Sources: [`packages/core/session/src/types.ts:233`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:238`](../packages/core/session/src/types.ts)
- 
+
  | kind | Form property | Other required fields | Full definition |
  |---|---|---|---|
 @@ -5471,7 +5479,7 @@ SHA-256: `938f7c7357bc403ea3b281a9dd016939df7a0880fc8db12612585be574d0d615`
- 
+
  SHA-256: `0657d3ca5ac4e7bf79b00bcf860b1c7159d01a9da137497221ec2f1776e365f7`
- 
+
 -Sources: [`packages/core/session/src/types.ts:33`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:38`](../packages/core/session/src/types.ts)
- 
+
  `number`
- 
+
 @@ -5666,6 +5674,17 @@ One of:
  - [`{ compactionId, llmStreamCall, maxTokens?, model, … }`](#persistence-type-sha256-a99ec0993c62c058e50af9f68922202a3b54f5e259bc2abf1915a73381d2316d)
  - [`{ compactionId, maxTokens?, model, provider, … }`](#persistence-type-sha256-576a2de8355eb09850963ff5953420b172e274d9283666eb7d889097db120796)
- 
+
 +<a id="persistence-type-sha256-b7ac980f6de9d2359a16cd2a71bfa12276449f294a89543883f2cb3f6d840b81"></a>
 +
 +### `union (2 variants)`
@@ -809,222 +850,222 @@ index 5cd37161..020cf72b 100644
 +- `"subagent"`
 +
  <a id="persistence-type-sha256-5776e5553ff2dfe3f5bc202dbb1e7c9f93e35a531aebb7764c23b2b6153b2ccc"></a>
- 
+
  <a id="persistence-type-sessioneventenvelope"></a>
 @@ -5820,7 +5839,7 @@ Sources: [`packages/interaction/commands/src/types.ts:105`](../packages/interact
- 
+
  SHA-256: `e4c18e294232c3ba6c9f1999f168263cc55956147cfe4121720899be8e52edd1`
- 
+
 -Sources: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:367`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -5979,7 +5998,7 @@ SHA-256: `cbbe8377ee744964537dbafd83607219e58ba79a13f6db0d0645c7ad3d5e8a09`
- 
+
  SHA-256: `a81059ca06999da1e712414520c2c65e491d052fcf9640fae20aa38f0a5dc735`
- 
+
 -Sources: [`packages/core/session/src/types.ts:384`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:389`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6199,7 +6218,7 @@ Sources: [`packages/compaction/compaction/src/types.ts:38`](../packages/compacti
- 
+
  SHA-256: `bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825`
- 
+
 -Sources: [`packages/core/session/src/types.ts:465`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6213,7 +6232,7 @@ Sources: [`packages/core/session/src/types.ts:465`](../packages/core/session/src
- 
+
  SHA-256: `79650cfa10aa3c52440328d85e8a25f0ffadc8d7efd784e3c0819d8bb74a1985`
- 
+
 -Sources: [`packages/core/session/src/types.ts:213`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:218`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6226,7 +6245,7 @@ Sources: [`packages/core/session/src/types.ts:213`](../packages/core/session/src
- 
+
  SHA-256: `5302e763151277614b97e77f00e3b326694c6c1247b916a20503c344dc970777`
- 
+
 -Sources: [`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:381`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6268,7 +6287,7 @@ Sources: [`packages/llm/llm/src/types.ts:161`](../packages/llm/llm/src/types.ts)
- 
+
  SHA-256: `ad0c38a0adb82a94c925456df41586d9b5f9202fca18593eae2213d4445b4585`
- 
+
 -Sources: [`packages/core/session/src/types.ts:391`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6282,7 +6301,7 @@ Sources: [`packages/core/session/src/types.ts:391`](../packages/core/session/src
- 
+
  SHA-256: `f4ed4717b4c259e933b550a8dcd90dc93628cda8a3c7affcaa53b9c13c1d53eb`
- 
+
 -Sources: [`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6365,7 +6384,7 @@ SHA-256: `e3e77b26f0148755a505f5b8ea843a3be117827d4703bb5754d9dc8ddbef521f`
- 
+
  SHA-256: `17d1afb770d9941936130996da00dc86782cfef731d8d6526162c301256a4ac3`
- 
+
 -Sources: [`packages/core/session/src/types.ts:428`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6393,7 +6412,7 @@ Sources: [`packages/core/agent/src/types.ts:96`](../packages/core/agent/src/type
- 
+
  SHA-256: `1ccb56061942f5ccb0d30c9e4f2883b9d115ff906560029de637b61d3cde896d`
- 
+
 -Sources: [`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6410,7 +6429,7 @@ Sources: [`packages/core/session/src/types.ts:342`](../packages/core/session/src
- 
+
  SHA-256: `0a30c3be336cdd4f8f34e66543a3d46d611c43986edd9b3ce6cbb9b721d3b5d3`
- 
+
 -Sources: [`packages/core/session/src/types.ts:205`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:210`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6423,7 +6442,7 @@ Sources: [`packages/core/session/src/types.ts:205`](../packages/core/session/src
- 
+
  SHA-256: `023a355b2be0d688fb6e4df8388dadb942761d46cfe96d0f499aae9631a159d4`
- 
+
 -Sources: [`packages/core/session/src/types.ts:207`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:212`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6435,7 +6454,7 @@ Sources: [`packages/core/session/src/types.ts:207`](../packages/core/session/src
- 
+
  SHA-256: `b6ef9c6210be8350cd465f485cf520031fffa6bf3809c61a1e713e834c5982d0`
- 
+
 -Sources: [`packages/core/session/src/types.ts:203`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:208`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6459,7 +6478,7 @@ Sources: [`packages/extensions/cordis-host-runner/src/index.ts:14`](../packages/
- 
+
  SHA-256: `4bb451330ff699f36b45539ceb0eb2606ead72084e2c5bb637c36cc80e2252db`
- 
+
 -Sources: [`packages/core/session/src/types.ts:194`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:199`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6561,7 +6580,7 @@ Sources: [`packages/session/session-title/src/types.ts:29`](../packages/session/
- 
+
  SHA-256: `ec8b5ff7c77ca6893ac7ba5a0c5b2aefeb52f12c64450b7359660c2a7e8a53d7`
- 
+
 -Sources: [`packages/core/session/src/types.ts:229`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:234`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6573,7 +6592,7 @@ Sources: [`packages/core/session/src/types.ts:229`](../packages/core/session/src
- 
+
  SHA-256: `6c5a37d42ebdb12db4410699259335f1e149e3a0260425684c00b153afc8990d`
- 
+
 -Sources: [`packages/core/session/src/types.ts:193`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:198`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6742,7 +6761,7 @@ SHA-256: `88841202942c7683b3b7e5ea6a796047ec326b6701ac23e58cc236d85613b9fa`
- 
+
  SHA-256: `56b7c047694875a843ba020dfea3c8380d54ae4ff88ab349e72004dc21e07c23`
- 
+
 -Sources: [`packages/core/session/src/types.ts:222`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:227`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6754,7 +6773,7 @@ Sources: [`packages/core/session/src/types.ts:222`](../packages/core/session/src
- 
+
  SHA-256: `eaa71be0fbf0f702df8ea6c11d0aa2f9782263d45a10d0fb14eda662f4bfe04c`
- 
+
 -Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:202`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6766,7 +6785,7 @@ Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src
- 
+
  SHA-256: `ab7ec5f9eb2c6dfacca5da4c37cf7ba85d04172053ee6b1ebf1709ffcd99c1a7`
- 
+
 -Sources: [`packages/core/session/src/types.ts:215`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:220`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -6856,7 +6875,7 @@ SHA-256: `52c6113cb0e53f345324bf84f01928bea5d5df57ee80bc0dd65407b8bc5a3734`
- 
+
  SHA-256: `6c03546143cdf6ae88f1745ac98c5139efa1588d1415249bbc5f3104d32ab800`
- 
+
 -Sources: [`packages/core/session/src/types.ts:192`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -7721,7 +7740,7 @@ Sources: [`packages/experimental/agent-team/src/types.ts:230`](../packages/exper
- 
+
  SHA-256: `6bc8e51124d0874bc89e1d0ceff381a9c3cd0fc240667d69f841ce4f60f65fe5`
- 
+
 -Sources: [`packages/core/session/src/types.ts:331`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -7802,7 +7821,7 @@ Sources: [`packages/interaction/permission-presets/src/index.ts:59`](../packages
- 
+
  SHA-256: `e481c46af3813e0010558e93f578b2986acd658404cec2d1679e3ac2a6c48654`
- 
+
 -Sources: [`packages/core/session/src/types.ts:298`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -7856,7 +7875,7 @@ Sources: [`packages/compaction/compaction/src/types.ts:82`](../packages/compacti
- 
+
  SHA-256: `54f9276a1617d7c12594722c89cfe864bcbe4517e9a6f9c98bab14f199a135e0`
- 
+
 -Sources: [`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:361`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -7870,7 +7889,7 @@ Sources: [`packages/core/session/src/types.ts:356`](../packages/core/session/src
- 
+
  SHA-256: `ef11a3b7fa2033ae4279545ff8a8a2ee4e301b9b73e5b91654c48e6d08283545`
- 
+
 -Sources: [`packages/core/session/src/types.ts:300`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:302`](../packages/core/session/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 @@ -7921,7 +7940,7 @@ Sources: [`packages/todo/tool-todo/src/types.ts:31`](../packages/todo/tool-todo/
- 
+
  SHA-256: `f90eb4ab2d3897bc20c521a038e3119d581f791ec974b1a0004f63a8ab9e232d`
- 
+
 -Sources: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
 +Sources: [`packages/core/session/src/types.ts:294`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
- 
+
  | Property | Presence | Type |
  |---|---|---|
 diff --git a/docs/persistence-catalog.zh.md b/docs/persistence-catalog.zh.md
@@ -1032,7 +1073,7 @@ index c12ce2c6..33f387ef 100644
 --- a/docs/persistence-catalog.zh.md
 +++ b/docs/persistence-catalog.zh.md
 @@ -21,8 +21,8 @@
- 
+
  | 根类型 | 类别 | SHA-256 | 已解析类型 |
  |---|---|---|---|
 -| `SessionHeader` | header | `1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445` | [`SessionHeader`](#persistence-type-sha256-1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445) |
@@ -1045,142 +1086,142 @@ index c12ce2c6..33f387ef 100644
 @@ -162,7 +162,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  }[T]
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:432`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:440`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:463`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:494`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:437`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:445`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:499`](../packages/core/session/src/types.ts)
- 
+
  ## 事件
- 
+
 @@ -292,7 +292,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  'assistant/attempt': { turn: number; step: number; stream: AssistantStreamRecord[] }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:361`](../packages/core/session/src/types.ts)
- 
+
  <a id="assistantmessage--surface"></a>
- 
+
 @@ -322,7 +322,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 
+
  类型：[TokenUsage](subsystems/llm-streaming.zh.md)
- 
+
 -来源：[`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
- 
+
  ### `command/*`
- 
+
 @@ -510,7 +510,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
- 
+
  ### `feedback/*`
- 
+
 @@ -755,7 +755,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  'request/context': RequestContext
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:403`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:408`](../packages/core/session/src/types.ts)
- 
+
  <a id="requestheader--log-only"></a>
- 
+
 @@ -774,7 +774,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:391`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
- 
+
  ### `sandbox/*`
- 
+
 @@ -851,7 +851,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  'session/end-seed': { inherited?: true }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:428`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts)
- 
+
  <a id="sessiontitle--log-only"></a>
- 
+
 @@ -913,7 +913,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  'step/end': { turn: number; step: number }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:302`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
- 
+
  <a id="stepstart--log-only"></a>
- 
+
 @@ -924,7 +924,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  'step/start': { turn: number; step: number }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:300`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts)
- 
+
  ### `subagent/*`
- 
+
 @@ -1000,7 +1000,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  'system/message': { turn: number; step: number; message: SystemMessage }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:331`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
- 
+
  ### `team/*`
- 
+
 @@ -1093,7 +1093,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 
+
  类型：[ToolCallId](subsystems/core.zh.md)
- 
+
 -来源：[`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:367`](../packages/core/session/src/types.ts)
- 
+
  <a id="toolptc-dispatch--log-only"></a>
- 
+
 @@ -1174,7 +1174,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:381`](../packages/core/session/src/types.ts)
- 
+
  ### `tool-workflow/*`
- 
+
 @@ -1254,7 +1254,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 
+
  类型：[TurnEndReason](subsystems/session.zh.md)
- 
+
 -来源：[`packages/core/session/src/types.ts:298`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
- 
+
  <a id="turnstart--log-only"></a>
- 
+
 @@ -1270,7 +1270,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  'turn/start': { turn: number }
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:294`](../packages/core/session/src/types.ts)
- 
+
  ### `user/*`
- 
+
 @@ -1289,7 +1289,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
  'user/message': UserMessage
  ```
- 
+
 -来源：[`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
- 
+
  ### `web/*`
- 
+
 @@ -2531,6 +2531,14 @@ SHA-256: `b765ee31033cea463863faf3fc6a0a1b85c47c6a2f13fe1ce833abe56105114b`
- 
+
  `"set"`
- 
+
 +<a id="persistence-type-sha256-eb2f5af9b3ad56d8aa89626cb99c199a0de00632c4bf26aa33f1b2ceae0f9bf5"></a>
 +
 +### `"sidechat"`
@@ -1190,44 +1231,44 @@ index c12ce2c6..33f387ef 100644
 +`"sidechat"`
 +
  <a id="persistence-type-sha256-6ebcc2dbec9f2dabca9f668ae6d39e877899b180740570f453409db339221df3"></a>
- 
+
  ### `"skill-catalog"`
 @@ -3224,7 +3232,7 @@ SHA-256: `84bbfdce7d2eab5b0c53e72ff7406db856c8bfd621b965b72fd86598ba493bf7`
- 
+
  SHA-256: `ada310bf0bdb8fed51f3b56ea63f6ea6b18bbd587f04fccb63a14ab0b2a24e05`
- 
+
 -来源：[`packages/core/session/src/types.ts:191`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:196`](../packages/core/session/src/types.ts) · [`packages/interaction/commands/src/types.ts:75`](../packages/interaction/commands/src/types.ts) · [`packages/interaction/commands/src/types.ts:79`](../packages/interaction/commands/src/types.ts) · [`packages/llm/llm/src/message.ts:111`](../packages/llm/llm/src/message.ts) · [`packages/session/session-title/src/types.ts:35`](../packages/session/session-title/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -3400,7 +3408,7 @@ SHA-256: `0f6265188dae7ba6faa26830a180bb4deb0760561f97ee0c9d399ccf6c9cf1f7`
- 
+
  SHA-256: `9a930283b91d493d6347146f2475bb107294b379415ca02162354f46a64164f7`
- 
+
 -来源：[`packages/core/session/src/types.ts:241`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:246`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -3652,7 +3660,7 @@ SHA-256: `1df34a6c086866ffdc2dd9e8e5c581c3751a010cdf6b8538a7327f7a3237f0b4`
  | `updatedAt` | 必需 | `number` |
  | `version` | 必需 | `1` |
- 
+
 -<a id="persistence-type-sha256-18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f"></a>
 +<a id="persistence-type-sha256-720f0354700d1adf1d56cd3c5d1ce708d285c770134578028a175c7141ba911f"></a>
- 
+
  <a id="persistence-type-headerline"></a>
- 
+
 @@ -3662,7 +3670,7 @@ SHA-256: `1df34a6c086866ffdc2dd9e8e5c581c3751a010cdf6b8538a7327f7a3237f0b4`
- 
+
  ### `HeaderLine`
- 
+
 -SHA-256: `18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f`
 +SHA-256: `720f0354700d1adf1d56cd3c5d1ce708d285c770134578028a175c7141ba911f`
- 
+
  来源：[`packages/session/session-persistence-jsonl/src/format.ts:83`](../packages/session/session-persistence-jsonl/src/format.ts)
- 
+
 @@ -3674,7 +3682,7 @@ SHA-256: `18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f`
  | `delegationDepth` | 必需 | `number` |
  | `id` | 必需 | `string` |
@@ -1238,51 +1279,51 @@ index c12ce2c6..33f387ef 100644
  | `type` | 必需 | `"session"` |
  | `version` | 必需 | `number` |
 @@ -4394,7 +4402,7 @@ SHA-256: `5f758f3de5f00c18968a7c6d347083aac5c9ae13f6a79c78f6611b23c4973564`
- 
+
  SHA-256: `3bd652ebfa8726b3ce3937a4f1bd2759e02f86b3a08a20f9e41a8513656fbc5f`
- 
+
 -来源：[`packages/core/session/src/types.ts:66`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:71`](../packages/core/session/src/types.ts)
- 
+
  以下类型之一：
- 
+
 @@ -4530,7 +4538,7 @@ SHA-256: `0acd94fe8794574c9ae72c7855ee16d29c546096d4af760d16d1225385764555`
- 
+
  SHA-256: `b158f3ff6923714807c0d73882f0b05dc87f8fa85c9e90814852d48bbc866081`
- 
+
 -来源：[`packages/core/session/src/types.ts:255`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:260`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -4549,7 +4557,7 @@ SHA-256: `b158f3ff6923714807c0d73882f0b05dc87f8fa85c9e90814852d48bbc866081`
- 
+
  SHA-256: `530da6c0267813bb4511af72883cc518834e624e3b3220a7062955fd57a788a6`
- 
+
 -来源：[`packages/core/session/src/types.ts:274`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:279`](../packages/core/session/src/types.ts)
- 
+
  以下类型之一：
- 
+
 @@ -4631,7 +4639,7 @@ SHA-256: `18dc21f12bbac8ade8377e6fbb54179e20c3d955d73fba3244c57fb6bf001df0`
  | `operation` | 必需 | `"delete"` |
  | `version` | 必需 | `1` |
- 
+
 -<a id="persistence-type-sha256-1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445"></a>
 +<a id="persistence-type-sha256-b83636858c092bb763f8bc7cd561aa8d99172ea880e454b4290f4b8a273ca948"></a>
- 
+
  <a id="persistence-type-packagescoresessionsrctypestssessionheader"></a>
- 
+
 @@ -4639,9 +4647,9 @@ SHA-256: `18dc21f12bbac8ade8377e6fbb54179e20c3d955d73fba3244c57fb6bf001df0`
- 
+
  ### `SessionHeader`
- 
+
 -SHA-256: `1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445`
 +SHA-256: `b83636858c092bb763f8bc7cd561aa8d99172ea880e454b4290f4b8a273ca948`
- 
+
 -来源：[`packages/core/session/src/types.ts:95`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:100`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -4651,7 +4659,7 @@ SHA-256: `1a3440e3577382704d42a6263aa463504eb74c566734a55e9503a63efcd02445`
@@ -1293,47 +1334,47 @@ index c12ce2c6..33f387ef 100644
 +| `origin` | 可选 | [`union (2 variants)`](#persistence-type-sha256-b7ac980f6de9d2359a16cd2a71bfa12276449f294a89543883f2cb3f6d840b81) |
  | `parentSession` | 可选 | `string` |
  | `version` | 必需 | `4` |
- 
+
 @@ -4887,7 +4895,7 @@ SHA-256: `4e97c3d85c0fc817ee58873c38c25a2474abaaa0af4839311b50b68db3b8cf1a`
- 
+
  SHA-256: `335e242de1fcc17b6ca920fc420d71bec2d76e53e37955c00948b65ab77f05c5`
- 
+
 -来源：[`packages/core/session/src/types.ts:463`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:468`](../packages/core/session/src/types.ts)
- 
+
  以下类型之一：
- 
+
 @@ -5332,7 +5340,7 @@ SHA-256: `a6da9ad5d42ae83a6833a8288b076688e8e0801633ea36cbdd8a30a6d9f3160c`
- 
+
  SHA-256: `1f8c126cfab3df812cd115cfc23e3256f0fa2383400f4ce91ecad313577e59b0`
- 
+
 -来源：[`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:202`](../packages/core/session/src/types.ts)
- 
+
  | kind | form 属性 | 其他必需字段 | 完整定义 |
  |---|---|---|---|
 @@ -5352,7 +5360,7 @@ SHA-256: `1f8c126cfab3df812cd115cfc23e3256f0fa2383400f4ce91ecad313577e59b0`
- 
+
  SHA-256: `f1687f982fa3d41ef29e159feed154ecd13af4dd209acaee16038f223f2e9402`
- 
+
 -来源：[`packages/core/session/src/types.ts:233`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:238`](../packages/core/session/src/types.ts)
- 
+
  | kind | form 属性 | 其他必需字段 | 完整定义 |
  |---|---|---|---|
 @@ -5473,7 +5481,7 @@ SHA-256: `938f7c7357bc403ea3b281a9dd016939df7a0880fc8db12612585be574d0d615`
- 
+
  SHA-256: `0657d3ca5ac4e7bf79b00bcf860b1c7159d01a9da137497221ec2f1776e365f7`
- 
+
 -来源：[`packages/core/session/src/types.ts:33`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:38`](../packages/core/session/src/types.ts)
- 
+
  `number`
- 
+
 @@ -5668,6 +5676,17 @@ SHA-256: `9947aa5938fe19a895298da412917acbf9ffb5093a73ab8baa257e6ae9e63a07`
  - [`{ compactionId, llmStreamCall, maxTokens?, model, … }`](#persistence-type-sha256-a99ec0993c62c058e50af9f68922202a3b54f5e259bc2abf1915a73381d2316d)
  - [`{ compactionId, maxTokens?, model, provider, … }`](#persistence-type-sha256-576a2de8355eb09850963ff5953420b172e274d9283666eb7d889097db120796)
- 
+
 +<a id="persistence-type-sha256-b7ac980f6de9d2359a16cd2a71bfa12276449f294a89543883f2cb3f6d840b81"></a>
 +
 +### `union (2 variants)`
@@ -1346,222 +1387,222 @@ index c12ce2c6..33f387ef 100644
 +- `"subagent"`
 +
  <a id="persistence-type-sha256-5776e5553ff2dfe3f5bc202dbb1e7c9f93e35a531aebb7764c23b2b6153b2ccc"></a>
- 
+
  <a id="persistence-type-sessioneventenvelope"></a>
 @@ -5822,7 +5841,7 @@ SHA-256: `a853902cfab417b8f08aa51ad6855fea46f34ed4588a74e47403035111d0fb86`
- 
+
  SHA-256: `e4c18e294232c3ba6c9f1999f168263cc55956147cfe4121720899be8e52edd1`
- 
+
 -来源：[`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:367`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -5981,7 +6000,7 @@ SHA-256: `cbbe8377ee744964537dbafd83607219e58ba79a13f6db0d0645c7ad3d5e8a09`
- 
+
  SHA-256: `a81059ca06999da1e712414520c2c65e491d052fcf9640fae20aa38f0a5dc735`
- 
+
 -来源：[`packages/core/session/src/types.ts:384`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:389`](../packages/core/session/src/types.ts) · [`packages/core/tools/src/types.ts:27`](../packages/core/tools/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6201,7 +6220,7 @@ SHA-256: `9e41386b3a0c9572b0d63078492ebb3997da7d3a830d44e0259418bd02f4bcb2`
- 
+
  SHA-256: `bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825`
- 
+
 -来源：[`packages/core/session/src/types.ts:465`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6215,7 +6234,7 @@ SHA-256: `bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825`
- 
+
  SHA-256: `79650cfa10aa3c52440328d85e8a25f0ffadc8d7efd784e3c0819d8bb74a1985`
- 
+
 -来源：[`packages/core/session/src/types.ts:213`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:218`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6228,7 +6247,7 @@ SHA-256: `79650cfa10aa3c52440328d85e8a25f0ffadc8d7efd784e3c0819d8bb74a1985`
- 
+
  SHA-256: `5302e763151277614b97e77f00e3b326694c6c1247b916a20503c344dc970777`
- 
+
 -来源：[`packages/core/session/src/types.ts:376`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:381`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6270,7 +6289,7 @@ SHA-256: `693f4952fb5565da96c06bace8924b098ac2fbc915fde0ff8019701183abc057`
- 
+
  SHA-256: `ad0c38a0adb82a94c925456df41586d9b5f9202fca18593eae2213d4445b4585`
- 
+
 -来源：[`packages/core/session/src/types.ts:391`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:396`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6284,7 +6303,7 @@ SHA-256: `ad0c38a0adb82a94c925456df41586d9b5f9202fca18593eae2213d4445b4585`
- 
+
  SHA-256: `f4ed4717b4c259e933b550a8dcd90dc93628cda8a3c7affcaa53b9c13c1d53eb`
- 
+
 -来源：[`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6367,7 +6386,7 @@ SHA-256: `e3e77b26f0148755a505f5b8ea843a3be117827d4703bb5754d9dc8ddbef521f`
- 
+
  SHA-256: `17d1afb770d9941936130996da00dc86782cfef731d8d6526162c301256a4ac3`
- 
+
 -来源：[`packages/core/session/src/types.ts:428`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6395,7 +6414,7 @@ SHA-256: `fa106c5b33b657e8ef16e8cbf39f3b7d44e5cbcdf4f9303d9db6410f28951e42`
- 
+
  SHA-256: `1ccb56061942f5ccb0d30c9e4f2883b9d115ff906560029de637b61d3cde896d`
- 
+
 -来源：[`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6412,7 +6431,7 @@ SHA-256: `1ccb56061942f5ccb0d30c9e4f2883b9d115ff906560029de637b61d3cde896d`
- 
+
  SHA-256: `0a30c3be336cdd4f8f34e66543a3d46d611c43986edd9b3ce6cbb9b721d3b5d3`
- 
+
 -来源：[`packages/core/session/src/types.ts:205`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:210`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6425,7 +6444,7 @@ SHA-256: `0a30c3be336cdd4f8f34e66543a3d46d611c43986edd9b3ce6cbb9b721d3b5d3`
- 
+
  SHA-256: `023a355b2be0d688fb6e4df8388dadb942761d46cfe96d0f499aae9631a159d4`
- 
+
 -来源：[`packages/core/session/src/types.ts:207`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:212`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6437,7 +6456,7 @@ SHA-256: `023a355b2be0d688fb6e4df8388dadb942761d46cfe96d0f499aae9631a159d4`
- 
+
  SHA-256: `b6ef9c6210be8350cd465f485cf520031fffa6bf3809c61a1e713e834c5982d0`
- 
+
 -来源：[`packages/core/session/src/types.ts:203`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:208`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6461,7 +6480,7 @@ SHA-256: `02b2c23f2d94b028c9588a8faace3fce1217405db346da3389368b495457bf79`
- 
+
  SHA-256: `4bb451330ff699f36b45539ceb0eb2606ead72084e2c5bb637c36cc80e2252db`
- 
+
 -来源：[`packages/core/session/src/types.ts:194`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:199`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6563,7 +6582,7 @@ SHA-256: `1b5649238876e28811e80f10ec67a00c197ad3babd4ecc61a22b09064b88c597`
- 
+
  SHA-256: `ec8b5ff7c77ca6893ac7ba5a0c5b2aefeb52f12c64450b7359660c2a7e8a53d7`
- 
+
 -来源：[`packages/core/session/src/types.ts:229`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:234`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6575,7 +6594,7 @@ SHA-256: `ec8b5ff7c77ca6893ac7ba5a0c5b2aefeb52f12c64450b7359660c2a7e8a53d7`
- 
+
  SHA-256: `6c5a37d42ebdb12db4410699259335f1e149e3a0260425684c00b153afc8990d`
- 
+
 -来源：[`packages/core/session/src/types.ts:193`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:198`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6744,7 +6763,7 @@ SHA-256: `88841202942c7683b3b7e5ea6a796047ec326b6701ac23e58cc236d85613b9fa`
- 
+
  SHA-256: `56b7c047694875a843ba020dfea3c8380d54ae4ff88ab349e72004dc21e07c23`
- 
+
 -来源：[`packages/core/session/src/types.ts:222`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:227`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6756,7 +6775,7 @@ SHA-256: `56b7c047694875a843ba020dfea3c8380d54ae4ff88ab349e72004dc21e07c23`
- 
+
  SHA-256: `eaa71be0fbf0f702df8ea6c11d0aa2f9782263d45a10d0fb14eda662f4bfe04c`
- 
+
 -来源：[`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:202`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6768,7 +6787,7 @@ SHA-256: `eaa71be0fbf0f702df8ea6c11d0aa2f9782263d45a10d0fb14eda662f4bfe04c`
- 
+
  SHA-256: `ab7ec5f9eb2c6dfacca5da4c37cf7ba85d04172053ee6b1ebf1709ffcd99c1a7`
- 
+
 -来源：[`packages/core/session/src/types.ts:215`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:220`](../packages/core/session/src/types.ts) · [`packages/llm/llm/src/types.ts:159`](../packages/llm/llm/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -6858,7 +6877,7 @@ SHA-256: `52c6113cb0e53f345324bf84f01928bea5d5df57ee80bc0dd65407b8bc5a3734`
- 
+
  SHA-256: `6c03546143cdf6ae88f1745ac98c5139efa1588d1415249bbc5f3104d32ab800`
- 
+
 -来源：[`packages/core/session/src/types.ts:192`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:197`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -7723,7 +7742,7 @@ SHA-256: `b1ebd5cda47d90d980bb05bffc3f970c51537b9aff15b3bc3d639811727741b1`
- 
+
  SHA-256: `6bc8e51124d0874bc89e1d0ceff381a9c3cd0fc240667d69f841ce4f60f65fe5`
- 
+
 -来源：[`packages/core/session/src/types.ts:331`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:336`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -7804,7 +7823,7 @@ SHA-256: `8a9c990773f798eac10ca8878e6bcc531ee080bc589cac956730e462cc6a09ad`
- 
+
  SHA-256: `e481c46af3813e0010558e93f578b2986acd658404cec2d1679e3ac2a6c48654`
- 
+
 -来源：[`packages/core/session/src/types.ts:298`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:303`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -7858,7 +7877,7 @@ SHA-256: `5dd766ccd1702a1142ad8b4bd44f2242f8e8a6752669ad3de0a5d224329b1438`
- 
+
  SHA-256: `54f9276a1617d7c12594722c89cfe864bcbe4517e9a6f9c98bab14f199a135e0`
- 
+
 -来源：[`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:361`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -7872,7 +7891,7 @@ SHA-256: `54f9276a1617d7c12594722c89cfe864bcbe4517e9a6f9c98bab14f199a135e0`
- 
+
  SHA-256: `ef11a3b7fa2033ae4279545ff8a8a2ee4e301b9b73e5b91654c48e6d08283545`
- 
+
 -来源：[`packages/core/session/src/types.ts:300`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:302`](../packages/core/session/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:305`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:307`](../packages/core/session/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 @@ -7923,7 +7942,7 @@ SHA-256: `79ddc907312f97cf9553d4841e8b3fc937097bd8d97900a790efad3c05255e99`
- 
+
  SHA-256: `f90eb4ab2d3897bc20c521a038e3119d581f791ec974b1a0004f63a8ab9e232d`
- 
+
 -来源：[`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
 +来源：[`packages/core/session/src/types.ts:294`](../packages/core/session/src/types.ts) · [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
- 
+
  | 属性 | 存在性 | 类型 |
  |---|---|---|
 diff --git a/docs/persistence-changes/historical-formats/README.i18n.yaml b/docs/persistence-changes/historical-formats/README.i18n.yaml
@@ -1589,9 +1630,9 @@ index 174c0074..77ef509e 100644
  | 3 | PR #4320 | [V3](v3.md) | [JSON](v3.schema.json) | 60 / 467 |
 -| 4 | Current checkout | [Current catalog](../../persistence-catalog.md) | [JSON](../../persistence-schema.json) | 65 / 614 |
 +| 4 | Current checkout | [Current catalog](../../persistence-catalog.md) | [JSON](../../persistence-schema.json) | 65 / 616 |
- 
+
  <!-- persistence-format-index:end -->
- 
+
 diff --git a/docs/persistence-changes/historical-formats/README.zh.md b/docs/persistence-changes/historical-formats/README.zh.md
 index 055e07f9..11eaf340 100644
 --- a/docs/persistence-changes/historical-formats/README.zh.md
@@ -1602,9 +1643,9 @@ index 055e07f9..11eaf340 100644
  | 3 | PR #4320 | [V3](v3.zh.md) | [JSON](v3.schema.json) | 60 / 467 |
 -| 4 | 当前工作树 | [当前目录](../../persistence-catalog.zh.md) | [JSON](../../persistence-schema.json) | 65 / 614 |
 +| 4 | 当前工作树 | [当前目录](../../persistence-catalog.zh.md) | [JSON](../../persistence-schema.json) | 65 / 616 |
- 
+
  <!-- persistence-format-index:end -->
- 
+
 diff --git a/docs/persistence-schema.json b/docs/persistence-schema.json
 index 87853fac..9766b461 100644
 --- a/docs/persistence-schema.json
@@ -2095,12 +2136,12 @@ index 3c0c2586..24bd7d9e 100644
     * Delegation depth: absent (zero) for a top-level session, parent depth + 1
     * for a subagent child. Persisted so a recursion budget survives restart and
 @@ -190,7 +190,7 @@ A backend refuses a log it cannot faithfully interpret with `SessionFormatUnsupp
- 
+
  ## `CreateSessionOptions` — seeding and metadata
- 
+
 -Creating a `Session` through the store takes a `seed` (initial replay or fork history), an optional exact `inheritedEventCount`, and `meta` (the storage-level fields the store folds into a `SessionHeader`). The store fills in `version`/`id` and defaults `createdAt`; the caller may supply the validated absolute `cwd`, `parentSession` lineage, `isSeeded` lineage bit, optional coarse `origin`, `delegationDepth`, `agentPreset`, and an existing `createdAt`. A seeded creation requires an explicit seed equal to its inherited prefix and an exact cut; the constructor appends the child-owned tagged end-seed marker at that cut before setup adds child-owned events. `origin: 'subagent'` lets product navigation hide duplicate child rows; it does not prove that a descriptor is valid or that the child can resume.
 +Creating a `Session` through the store takes a `seed` (initial replay or fork history), an optional exact `inheritedEventCount`, and `meta` (the storage-level fields the store folds into a `SessionHeader`). The store fills in `version`/`id` and defaults `createdAt`; the caller may supply the validated absolute `cwd`, `parentSession` lineage, `isSeeded` lineage bit, optional coarse `origin`, `delegationDepth`, `agentPreset`, and an existing `createdAt`. A seeded creation requires an explicit seed equal to its inherited prefix and an exact cut; the constructor appends the child-owned tagged end-seed marker at that cut before setup adds child-owned events. `origin: 'subagent'` lets product navigation hide duplicate child rows; it does not prove that a descriptor is valid or that the child can resume. `origin: 'sidechat'` identifies an independent root and cannot be paired with `parentSession`.
- 
+
  ```ts type-equiv
  /**
 @@ -216,7 +216,7 @@ interface CreateSessionOptions {
@@ -2131,12 +2172,12 @@ index dba06854..c74dcd88 100644
     * Delegation depth: absent (zero) for a top-level session, parent depth + 1
     * for a subagent child. Persisted so a recursion budget survives restart and
 @@ -190,7 +190,7 @@ interface SessionHeader {
- 
+
  ## `CreateSessionOptions`：seed 与元数据
- 
+
 -通过 store 创建 `Session` 时会接收 `seed`（初始回放或 fork 历史）、可选的精确 `inheritedEventCount` 与 `meta`（store 整合进 `SessionHeader` 的存储层字段）。store 填充 `version`/`id` 并为 `createdAt` 提供默认值；调用方可以提供已校验的绝对 `cwd`、`parentSession` 谱系、`isSeeded` 谱系标记、可选的粗粒度 `origin`、`delegationDepth`、用于组装该 agent（智能体）的 `agentPreset` 以及已有的 `createdAt`。seeded 创建必须显式提供与 inherited prefix 完全相等的 seed 和精确 cut；constructor 会先在该 cut 追加 child-owned tagged end-seed marker，setup 再添加 child-owned event。`origin: 'subagent'` 让产品导航能够隐藏重复的 child 行；它不证明描述符有效，也不证明 child 可以恢复。
 +通过 store 创建 `Session` 时会接收 `seed`（初始回放或 fork 历史）、可选的精确 `inheritedEventCount` 与 `meta`（store 整合进 `SessionHeader` 的存储层字段）。store 填充 `version`/`id` 并为 `createdAt` 提供默认值；调用方可以提供已校验的绝对 `cwd`、`parentSession` 谱系、`isSeeded` 谱系标记、可选的粗粒度 `origin`、`delegationDepth`、用于组装该 agent（智能体）的 `agentPreset` 以及已有的 `createdAt`。seeded 创建必须显式提供与 inherited prefix 完全相等的 seed 和精确 cut；constructor 会先在该 cut 追加 child-owned tagged end-seed marker，setup 再添加 child-owned event。`origin: 'subagent'` 让产品导航能够隐藏重复的 child 行；`origin: 'sidechat'` 标记独立根会话，且不能带有 `parentSession`。
- 
+
  ```ts type-equiv
  /**
 @@ -216,7 +216,7 @@ interface CreateSessionOptions {
@@ -2168,26 +2209,26 @@ index 4933734d..8de75f2b 100644
 --- a/docs/subsystems/session.md
 +++ b/docs/subsystems/session.md
 @@ -6,6 +6,8 @@ The in-memory, event-sourced model of [dsh-session](../../packages/core/session)
- 
+
  Source: [`packages/core/session/src/types.ts`](../../packages/core/session/src/types.ts)
- 
+
 +`SessionHeader.origin` distinguishes delegated `subagent` sessions from independent `sidechat` roots. A sidechat has no `parentSession` or parent Agent ownership; its ordinary root Agent lifecycle does not activate or mutate another Session. Ordinary forks from it receive normal fork lineage without inheriting the sidechat origin. Hosts that support the identity expose `SessionController.supportsSideChatSessions`, while `UiWorkspace.supportsSideChatSessions` declares that the Client filters sidechats from ordinary workspace views and blank-session reuse.
 +
  ## `SessionEventMap` — the event vocabulary
- 
+
  The append-only event types. Merge-extensible: a plugin declares extra event types via declaration merging — e.g. the [compaction seam](compaction.md) adds `compaction/start` / `compaction/summary` / `compaction/end`, and `@deepseek-ai/dsh-hook-protocol` adds log-only `hook/invoked` / `hook/result` records for a hook bridge. Like `compaction/*`, these are NOT `SurfaceEventType`s (no `surfaceOp`). The generated [persistence log event catalog](../persistence-catalog.md) enumerates every member — core and merged — with its payload, surface badge, and declaration site.
 diff --git a/docs/subsystems/session.zh.md b/docs/subsystems/session.zh.md
 index a3e5446b..6b58923f 100644
 --- a/docs/subsystems/session.zh.md
 +++ b/docs/subsystems/session.zh.md
 @@ -6,6 +6,8 @@
- 
+
  源码：[`packages/core/session/src/types.ts`](../../packages/core/session/src/types.ts)
- 
+
 +`SessionHeader.origin` 用于区分委派的 `subagent` 会话与独立的 `sidechat` 根会话。Sidechat 不具有 `parentSession` 或父 Agent 所有权；其普通根 Agent 生命周期不会激活或修改其他 Session。从 sidechat 创建的普通分叉会获得正常的分叉谱系，且不会继承 sidechat origin。支持此身份的 Host 会公开 `SessionController.supportsSideChatSessions`；`UiWorkspace.supportsSideChatSessions` 则表示 Client 会将 sidechat 排除在普通工作区视图和空会话复用之外。
 +
  ## `SessionEventMap`：事件词汇
- 
+
  仅追加的事件类型。可通过声明合并扩展：插件通过 declaration merging 声明额外的事件类型。例如[压缩（compaction） seam](compaction.zh.md) 添加了 `compaction/start` / `compaction/summary` / `compaction/end`，`@deepseek-ai/dsh-hook-protocol` 为钩子桥接添加了仅记录日志的 `hook/invoked` / `hook/result` 记录。与 `compaction/*` 一样，这些都不是 `SurfaceEventType`（没有 `surfaceOp`）。生成的[持久化日志事件目录](../persistence-catalog.zh.md)列举了所有成员（核心与合并扩展的），包含其 payload、surface 标记与声明位置。
 diff --git a/packages/api/session-controller/src/agent.ts b/packages/api/session-controller/src/agent.ts
 index aaacc886..abb40e37 100644
@@ -2245,7 +2286,7 @@ index 2362bce2..604a2b95 100644
 --- a/packages/api/session-controller/src/index.ts
 +++ b/packages/api/session-controller/src/index.ts
 @@ -117,6 +117,9 @@ export interface SessionControllerInternals {
- 
+
  /** Host service backing the generated `ctx.remote.session` namespace. */
  export class SessionController extends TypertRemoteService {
 +  /** Whether this Host accepts sidechat roots through the ordinary Session lifecycle. */
@@ -2259,7 +2300,7 @@ index d7ef1ad4..8813079e 100644
 --- a/packages/api/session-controller/src/list.ts
 +++ b/packages/api/session-controller/src/list.ts
 @@ -352,7 +352,7 @@ function updatedAt(header: SessionHeader, metadata: SessionListMetadata | undefi
- 
+
  function listFields(header: SessionHeader): {
    readonly parentSessionId?: SessionId
 -  readonly origin?: 'subagent'
@@ -2290,12 +2331,12 @@ index c0b2b9a5..e33445f2 100644
    readonly agentPreset?: string
  }
 diff --git a/packages/api/session-controller/tests/agent.host.spec.ts b/packages/api/session-controller/tests/agent.host.spec.ts
-index 40dceeef..3a81e64e 100644
+index 40dceeef..f00a80f1 100644
 --- a/packages/api/session-controller/tests/agent.host.spec.ts
 +++ b/packages/api/session-controller/tests/agent.host.spec.ts
-@@ -329,6 +329,45 @@ describe('ApiSession model selection', () => {
+@@ -329,6 +329,46 @@ describe('ApiSession model selection', () => {
  })
- 
+
  describe('ApiSession creation', () => {
 +  it.each(['live', 'cold'] as const)('does not reuse a blank sidechat for main Session creation (%s)', async (kind) => {
 +    const { ctx, agents } = await harness()
@@ -2312,15 +2353,16 @@ index 40dceeef..3a81e64e 100644
 +    if (kind === 'live') {
 +      await ctx.agents.register(sidechat)
 +    } else {
-+      const observation = {
++      const observation: SessionObservation = {
 +        source: 'prepared',
 +        header: sidechatHeader,
++        inheritedEventCount: SessionLogOffset(0),
 +        events: [],
 +        cursor: -1,
 +        projections: { asOfSeq: -1, values: {} },
-+        retain: vi.fn(),
++        retain: () => observation,
 +        [Symbol.dispose]: vi.fn(),
-+      } as unknown as SessionObservation
++      }
 +      vi.spyOn(ctx.sessionQuery, 'observeSession').mockResolvedValue(observation)
 +    }
 +
@@ -2339,6 +2381,41 @@ index 40dceeef..3a81e64e 100644
    it('rejects a resume that subagent routing adopts before publication', async () => {
      const child = await harness()
      const childMeta = header('resume-child-race')
+diff --git a/packages/api/session-controller/tests/session-fork.host.spec.ts b/packages/api/session-controller/tests/session-fork.host.spec.ts
+index e6ba8321..07fa7d0a 100644
+--- a/packages/api/session-controller/tests/session-fork.host.spec.ts
++++ b/packages/api/session-controller/tests/session-fork.host.spec.ts
+@@ -64,7 +64,7 @@ async function liveAgent(
+   id: string,
+   turns: number,
+   tail: Tail = 'none',
+-  lineage: { parentSession?: SessionId; origin?: 'subagent' } = {},
++  lineage: { parentSession?: SessionId; origin?: 'subagent' | 'sidechat' } = {},
+ ): Promise<Session> {
+   const session = ctx.sessions.create(sid(id), { meta: { cwd: '/proj', ...lineage } })
+   for (let turn = 1; turn <= turns; turn++) {
+@@ -382,6 +382,21 @@ describe('sessions.fork', () => {
+     await ctx.fiber.dispose()
+   })
+
++  it('forks a sidechat as an ordinary Session without copying its origin', async () => {
++    const ctx = await composed()
++    const source = await liveAgent(ctx, 'sidechat-fork-source', 1, 'none', { origin: 'sidechat' })
++
++    const response = await remote(ctx).fork(request({ sessionId: source.id }))
++
++    expect(response.ok).toBe(true)
++    if (response.ok) {
++      const fork = ctx.sessions.get(response.value.sessionId)
++      expect(fork?.header.origin).toBeUndefined()
++      expect(fork?.header.parentSession).toBe(source.id)
++    }
++    await ctx.fiber.dispose()
++  })
++
+   it('forks a persisted subagent without resuming its Agent', async () => {
+     const ctx = await composed()
+     const sourceId = sid('session-cold-subagent')
 diff --git a/packages/bundle/headless/src/index.ts b/packages/bundle/headless/src/index.ts
 index 93006eb8..8a7fa06f 100644
 --- a/packages/bundle/headless/src/index.ts
@@ -2357,7 +2434,7 @@ index 55e03054..1fd961f2 100644
 --- a/packages/client/ui-workspace/src/client/navigation.ts
 +++ b/packages/client/ui-workspace/src/client/navigation.ts
 @@ -37,6 +37,8 @@ export interface StartSessionOptions extends DraftInitializationOptions {
- 
+
  /** Workspace archive and directory operations consumed by Client UI domains. */
  export interface UiWorkspace {
 +  /** Whether this Client hides sidechat roots from ordinary workspace views and blank-session reuse. */
@@ -2366,7 +2443,7 @@ index 55e03054..1fd961f2 100644
     * Select a Session and show its Conversation as one UI navigation action.
     * @param target - known Session identity or durable direct-parent subagent address to display.
 @@ -151,6 +153,7 @@ export class DirectoryBrowseError extends Error {
- 
+
  /** Implements Workspace archive and directory UI operations. */
  class UiWorkspaceService extends Service implements UiWorkspace {
 +  readonly supportsSideChatSessions: true = true
@@ -2426,7 +2503,7 @@ index 9fb549c5..90b1507a 100644
 +      'sidechat', noArchive, 'show', noAttention, { items: [], hasMore: false }, 50,
 +    ).items).toEqual([])
    })
- 
+
    it('tolerates ids whose summary has not landed yet', () => {
 diff --git a/packages/client/ui-workspace/tests/workspaces-service.client.spec.ts b/packages/client/ui-workspace/tests/workspaces-service.client.spec.ts
 index 90d3e8e0..cfc4b930 100644
@@ -2435,7 +2512,7 @@ index 90d3e8e0..cfc4b930 100644
 @@ -682,6 +682,17 @@ describe('UiWorkspaceService', () => {
      expect(b.sessions.retain).not.toHaveBeenCalled()
    })
- 
+
 +  it('does not reuse a blank sidechat for a main Workspace', async () => {
 +    const b = bench({
 +      sessions: sessionState([
@@ -2477,21 +2554,23 @@ index d1507f1f..93880ee3 100644
    }
  }
 diff --git a/packages/core/agent-loop/src/index.ts b/packages/core/agent-loop/src/index.ts
-index ca4532af..290b0e97 100644
+index ca4532af..3e287fb6 100644
 --- a/packages/core/agent-loop/src/index.ts
 +++ b/packages/core/agent-loop/src/index.ts
-@@ -873,6 +873,15 @@ export class AgentLoop extends Service implements AgentFactory {
+@@ -873,6 +873,17 @@ export class AgentLoop extends Service implements AgentFactory {
        let preparation: SessionPreparation | undefined
        try {
          try {
-+          const snapshot = await raceAbortCall(
-+            () => persistence.stat(id, { signal: fused }),
-+            fused,
-+            id,
-+          )
-+          fused.throwIfAborted()
-+          if (snapshot?.header.origin === 'sidechat' && options.parentAgent !== undefined) {
-+            throw new Error('sidechat agents cannot resume under a parent Agent')
++          if (options.parentAgent !== undefined) {
++            const snapshot = await raceAbortCall(
++              () => persistence.stat(id, { signal: fused }),
++              fused,
++              id,
++            )
++            fused.throwIfAborted()
++            if (snapshot?.header.origin === 'sidechat') {
++              throw new Error('sidechat agents cannot resume under a parent Agent')
++            }
 +          }
            // Taking write ownership FIRST excludes a concurrent resume of the
            // same id (in this process, a live agent's handle holds the claim).
@@ -2502,7 +2581,7 @@ index 28759393..cba832ad 100644
 +++ b/packages/core/agent-loop/tests/resume.spec.ts
 @@ -121,6 +121,68 @@ function throwUnknown(value: unknown): never {
  }
- 
+
  describe('the session-persistence Agent Note: AgentLoop factory create/resume', () => {
 +  it('rejects cold sidechat resume under a parent before taking write ownership', async () => {
 +    const { ctx } = await persistentHarness(new MockAdapter([]))
@@ -2570,7 +2649,7 @@ index 28759393..cba832ad 100644
      const sessionId = SessionId('unknown-resume-failure-s')
      const root = await persistSession(sessionId)
 diff --git a/packages/core/agent/src/index.ts b/packages/core/agent/src/index.ts
-index dd8d09e6..488527e3 100644
+index dd8d09e6..6043d3e4 100644
 --- a/packages/core/agent/src/index.ts
 +++ b/packages/core/agent/src/index.ts
 @@ -80,7 +80,7 @@ export interface CreateAgentOptions {
@@ -2593,14 +2672,15 @@ index dd8d09e6..488527e3 100644
      const ownerCtx = this.ctx
      // Re-trace a Service-backed factory through the accessing context
      // explicitly. This preserves AgentLoop's dependency origin while binding
-@@ -410,6 +414,14 @@ export class AgentRegistry extends Service {
+@@ -410,6 +414,15 @@ export class AgentRegistry extends Service {
     * @returns the handle after setup, rollback-covered publication, and loop start complete.
     */
    async resume(options: ResumeAgentOptions): Promise<AgentHandle> {
 +    const resident = this.ctx.get('sessions')?.get(options.resumeSessionId)
 +    if (options.parentAgent !== undefined) {
++      options.signal?.throwIfAborted()
 +      const header = resident?.header
-+        ?? (await this.ctx.get('sessionPersistence')?.stat(options.resumeSessionId))?.header
++        ?? (await this.ctx.get('sessionPersistence')?.stat(options.resumeSessionId, { signal: options.signal }))?.header
 +      if (header?.origin === 'sidechat') {
 +        throw new Error('sidechat agents cannot resume under a parent Agent')
 +      }
@@ -2619,11 +2699,11 @@ index 21d90151..0af5a3d8 100644
 +import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
  import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
  import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
- 
+
 @@ -335,6 +335,31 @@ describe('AgentRegistry factory seam', () => {
      await unregister()
    })
- 
+
 +  it('rejects sidechat creation and resident resume with parent ownership before factory dispatch', async () => {
 +    const ctx = new Context()
 +    await ctx.plugin(SessionStore)
@@ -2677,7 +2757,7 @@ index e0931f22..e73dd27e 100644
 @@ -20,6 +20,11 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
  /** Identifies one session in the store (and its persistence artifacts). */
  export type SessionId = Branded<'SessionId'>
- 
+
 +/** Durable root identity for an independent sidechat outside ordinary workspace views. */
 +export const SIDECHAT_SESSION_ORIGIN = 'sidechat' as const
 +/** Persisted identity of a delegated child or an independent sidechat root. */
@@ -2716,7 +2796,7 @@ index 5483c354..9464bdd6 100644
 @@ -1457,6 +1457,22 @@ describe('SessionStore', () => {
      })
    })
- 
+
 +  it('keeps sidechat as an independent root and forks it into an ordinary Session', async () => {
 +    const ctx = new Context()
 +    await ctx.plugin(SessionStore)
@@ -2822,7 +2902,7 @@ index b7cf4e7a..795db9eb 100644
 --- a/packages/session/session-format-v3-to-v4/src/codec.ts
 +++ b/packages/session/session-format-v3-to-v4/src/codec.ts
 @@ -13,7 +13,15 @@ import { assertReleasedV4Header } from './validation.ts'
- 
+
  function physicalV2(value: unknown): SessionFormatHeader {
    if (!isSessionFormatJsonObject(value) || value['version'] !== 4) throw new SessionFormatError('expected format v4 physical header')
 -  return { ...value, version: 2 } as SessionFormatHeader
@@ -2836,7 +2916,7 @@ index b7cf4e7a..795db9eb 100644
 +function physicalV4Origin(value: unknown): 'sidechat' | undefined {
 +  return isSessionFormatJsonObject(value) && value['origin'] === 'sidechat' ? 'sidechat' : undefined
  }
- 
+
  /**
 @@ -23,13 +31,19 @@ function physicalV2(value: unknown): SessionFormatHeader {
  export const releasedV4SessionFormatCodec = Object.freeze({
@@ -2892,7 +2972,7 @@ index 8c0e74d6..8852a0dd 100644
 +    throw new SessionFormatError('format v4 sidechat header cannot have parentSession')
    }
  }
- 
+
 diff --git a/packages/session/session-format-v3-to-v4/tests/codec.spec.ts b/packages/session/session-format-v3-to-v4/tests/codec.spec.ts
 index 21a764a4..2e002dd9 100644
 --- a/packages/session/session-format-v3-to-v4/tests/codec.spec.ts
@@ -2908,7 +2988,7 @@ index 21a764a4..2e002dd9 100644
 @@ -35,6 +35,29 @@ describe('V4 framing and restoration', () => {
      expect(restoreReleasedV4Artifact(artifact, types)).toBe(artifact)
    })
- 
+
 +  it('round trips each current origin and rejects invalid lineage at every header boundary', () => {
 +    for (const origin of [undefined, 'subagent', 'sidechat'] as const) {
 +      const logical = {
@@ -3037,7 +3117,7 @@ index 760aaa46..88f258e5 100644
 @@ -461,6 +461,24 @@ describe('JsonlSessionPersistence: format helpers', () => {
      expect(scan.inheritedEventCount).toBe(3)
    })
- 
+
 +  it.each([undefined, 'subagent', 'sidechat'] as const)('round-trips current Session origin %s', (origin) => {
 +    const header: SessionHeader = {
 +      ...meta(`origin-${origin ?? 'absent'}`),
@@ -3098,7 +3178,7 @@ index d6df9aae..4e401360 100644
 +      '@deepseek-ai/dsh-workspace':
 +        specifier: workspace:*
 +        version: link:../../workspace/workspace
- 
+
    packages/core/agent-tool-presentation:
      dependencies:
 diff --git a/docs/persistence-changes/2026-11-02-sidechat-origin.i18n.yaml b/docs/persistence-changes/2026-11-02-sidechat-origin.i18n.yaml
@@ -3524,17 +3604,17 @@ index 00000000..702d2b63
 +3. 创建 sidechat、重启 Harness 并冷恢复该会话，以确认升级成功。现有普通 Session 和 subagent 无需转换。
 diff --git a/packages/core/agent-loop/tests/sidechat-loader-composition.spec.ts b/packages/core/agent-loop/tests/sidechat-loader-composition.spec.ts
 new file mode 100644
-index 00000000..0bf60077
+index 00000000..4a50fb04
 --- /dev/null
 +++ b/packages/core/agent-loop/tests/sidechat-loader-composition.spec.ts
-@@ -0,0 +1,165 @@
+@@ -0,0 +1,174 @@
 +import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 +import { tmpdir } from 'node:os'
 +import { join } from 'node:path'
 +import { pathToFileURL } from 'node:url'
 +import { afterEach, describe, expect, it } from 'vitest'
 +import { Context } from '@deepseek-ai/cordis'
-+import Loader from '@deepseek-ai/cordis-plugin-loader'
++import Loader, { type ModuleLoaderV2 } from '@deepseek-ai/cordis-plugin-loader'
 +import Include from '@deepseek-ai/cordis-plugin-include'
 +import AgentRegistry from '@deepseek-ai/dsh-agent'
 +import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -3552,6 +3632,18 @@ index 00000000..0bf60077
 +
 +let root: string | undefined
 +let context: Context | undefined
++
++function sourceModuleLoader(importModule: (specifier: string) => Promise<unknown>): ModuleLoaderV2 {
++  return {
++    version: 'v2',
++    import: importModule,
++    loadCache: new Map(),
++    register(): never { throw new Error('unexpected module hook registration') },
++    getOrCreateModuleJob(): never { throw new Error('unexpected module job creation') },
++    resolveSync(): never { throw new Error('unexpected synchronous module resolution') },
++    load(): never { throw new Error('unexpected module load') },
++  }
++}
 +
 +afterEach(async () => {
 +  await context?.fiber.dispose()
@@ -3605,14 +3697,11 @@ index 00000000..0bf60077
 +    ['@deepseek-ai/dsh-storage-domain', StorageDomain],
 +    ['@deepseek-ai/dsh-workspace', WorkspaceRegistry],
 +  ])
-+  context.loader.internal = {
-+    version: 'v2',
-+    async import(specifier: string) {
-+      const module = modules.get(specifier)
-+      if (module === undefined) throw new Error(`unexpected Loader import: ${specifier}`)
-+      return module
-+    },
-+  } as unknown as NonNullable<typeof context.loader.internal>
++  context.loader.internal = sourceModuleLoader(async (specifier: string) => {
++    const module = modules.get(specifier)
++    if (module === undefined) throw new Error(`unexpected Loader import: ${specifier}`)
++    return module
++  })
 +  await context.loader.create({
 +    name: 'cordis:include',
 +    config: { path: pathToFileURL(configPath).href },

@@ -242,10 +242,10 @@ importers:
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: 0.2.1-rc.5
         version: 0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)
-      '@deepseek-ai/dsh-client-ui-subagent':
+      '@deepseek-ai/dsh-client-ui-workspace':
         specifier: 0.2.1-rc.5
         version: 0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)
-      '@deepseek-ai/dsh-client-ui-workspace':
+      '@deepseek-ai/dsh-llm':
         specifier: 0.2.1-rc.5
         version: 0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)
       '@deepseek-ai/dsh-session':
@@ -254,9 +254,6 @@ importers:
       '@deepseek-ai/dsh-session-query':
         specifier: 0.2.1-rc.5
         version: 0.2.1-rc.5(6d758450984947d3e758716acacefad5)
-      '@deepseek-ai/dsh-subagent':
-        specifier: 0.2.1-rc.5
-        version: 0.2.1-rc.5(40debf2910110655430943904ca6a72f)
       '@deepseek-ai/dsh-typert-protocol':
         specifier: 0.2.1-rc.5
         version: 0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)
@@ -565,11 +562,6 @@ packages:
 
   '@deepseek-ai/dsh-client-ui-slots@0.2.1-rc.5':
     resolution: {integrity: sha512-CPqLPr1wYZAjxjwahcrud+Wf4sb5nKWqkukZOX3T/MLZ2lLJCOdDDlB5ji9ozLNCKwQw8nlcQPTiWzXMriNmMA==}
-    peerDependencies:
-      '@deepseek-ai/cordis': ~4.0.5
-
-  '@deepseek-ai/dsh-client-ui-subagent@0.2.1-rc.5':
-    resolution: {integrity: sha512-YT8NcDLbW/zRD76ix6yv6FvNoDKjXoTAYbpRiZnkYytUirDrvl8YvFZe2NKKBVJPaSJ1WV0zpccBfbt5a2ws7A==}
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.5
 
@@ -2247,10 +2239,6 @@ snapshots:
       '@deepseek-ai/cordis': 4.0.5(@deepseek-ai/cordis-plugin-include@1.0.10)(@deepseek-ai/cordis-plugin-loader@1.0.6)
 
   '@deepseek-ai/dsh-client-ui-slots@0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)':
-    dependencies:
-      '@deepseek-ai/cordis': 4.0.5(@deepseek-ai/cordis-plugin-include@1.0.10)(@deepseek-ai/cordis-plugin-loader@1.0.6)
-
-  '@deepseek-ai/dsh-client-ui-subagent@0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)':
     dependencies:
       '@deepseek-ai/cordis': 4.0.5(@deepseek-ai/cordis-plugin-include@1.0.10)(@deepseek-ai/cordis-plugin-loader@1.0.6)
 
