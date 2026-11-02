@@ -1,0 +1,6 @@
+node_modules/
+*.tsbuildinfo
+.DS_Store
+coverage/
+*.tgz
+packages/plugins/side-tasks/lib/
