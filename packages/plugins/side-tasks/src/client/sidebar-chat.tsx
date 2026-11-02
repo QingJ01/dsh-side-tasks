@@ -1,18 +1,18 @@
 /** Right-sidebar adapter for temporary side-chat sessions. */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { SideChatPreparations } from './preparation.ts'
 import type { Context } from '@deepseek-ai/cordis'
-import type { ISessions, SessionListState, SessionReference, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ISessions, SessionEventWindow, SessionListState, SessionReference, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-subagent/client'
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
-import type { ConversationSnapshot, ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SidebarRightTabDefinition, SidebarRightTabInfo } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import {
   Button,
   IconNewChatOutlineRegular,
-  IconSendOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { RemoteError, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   PropsLocale,
@@ -72,7 +72,10 @@ function waitForAbort(signal: AbortSignal): Promise<void> {
   })
 }
 
-export function sideChatResourceProvider(sessions: ISessions): ResourceProvider<'sidechat'> {
+export function sideChatResourceProvider(
+  sessions: ISessions,
+  boundaries = new Map<SessionId, number>(),
+): ResourceProvider<'sidechat'> {
   return {
     protocol: 'sidechat',
     async *open(resourceAddress, { signal }) {
@@ -85,6 +88,7 @@ export function sideChatResourceProvider(sessions: ISessions): ResourceProvider<
         return
       }
       if (signal.aborted) return
+      if (address.contextThrough !== undefined) boundaries.set(address.childSessionId, address.contextThrough)
       let reference: SessionReference
       try {
         reference = sessions.retain(address, { source: 'sidebarChat', signal })
@@ -128,116 +132,81 @@ export function SideChatEmptyState({ t }: Pick<PropsLocale<typeof NS>, 't'>) {
   )
 }
 
+/** Inherited parent turns are context, not a first side-chat exchange. */
+export function hasOwnSideChatTurn(window: SessionEventWindow, contextThrough: number | undefined): boolean {
+  // Older resource addresses have no boundary and retain their normal view.
+  if (contextThrough === undefined) return true
+  return window.entries.some(entry => entry.event.seq > contextThrough && entry.event.type === 'turn/start')
+}
+
+function EmptyChatView() { return <div style={{ flex: '1 0 auto' }} /> }
+
 type ConversationSlotPanelProps =
-  PropsRuntime<typeof SIDE_CHAT_SLOT> & PropsRenderFactories & PropsLocale<typeof NS>
+  PropsRuntime<typeof SIDE_CHAT_SLOT> & PropsRenderFactories & PropsLocale<typeof NS> & {
+    readonly useSideChatOwn: <T>(selector: (own: boolean) => T) => T
+  }
 
 function ConversationSlotPanel({
-  sessionId, useSession, useConversation, useSessions, renderFactorySlot, t,
+  useSession, useSideChatOwn, renderFactorySlot, t,
 }: ConversationSlotPanelProps) {
   const session = useSession((value: SessionSnapshot) => value)
-  const conversation = useConversation((value: ConversationSnapshot) => value)
-  const active = conversation.activeTargets.size > 0
-    || (!session.blank && !session.awaitingFirstTurn)
-    || session.running
-  const shellPhase = active ? 'active' : session.promptAttempted ? 'engaging' : 'blank'
-  const summaryBlank = useSessions((state: SessionListState) => state.byId[sessionId]?.blank)
-  const parentAvailabilityPending = session.subagent?.address.mode === 'continuable'
-    && session.subagent.parentAvailable === undefined
-  const settling = (shellPhase === 'blank' && session.openState === 'loading' && summaryBlank !== true)
-    || parentAvailabilityPending
-  const hero = shellPhase === 'blank' && (session.openState === 'open' || summaryBlank === true)
-  const phase = settling ? 'settling' : 'active'
+  const own = useSideChatOwn(value => value)
+  const settling = session.openState === 'loading'
+    || (session.subagent?.address.mode === 'continuable' && session.subagent.parentAvailable === undefined)
+  const hero = !own && !session.promptAttempted && !session.running && session.openState === 'open'
   return (
     <>
       {hero && <SideChatEmptyState t={t} />}
-      {renderFactorySlot('conversation.content', { variant: 'embedded', phase, hero: false }, {
-        slots: { views: FixedChatConversationView },
+      {renderFactorySlot('conversation.content', { variant: 'embedded', phase: settling ? 'settling' : 'active', hero: false }, {
+        slots: { views: own || session.promptAttempted ? FixedChatConversationView : EmptyChatView },
       })}
     </>
   )
 }
 
-type CreateSideTask = (parentSessionId: SessionId, prompt: string) => Promise<RemoteResult<SideTaskAddress>>
-
 interface SideChatStartPageProps {
   readonly parentSessionId: SessionId
-  readonly createSideTask: CreateSideTask
-  readonly onCreated: (address: SideTaskAddress) => void
+  readonly tab: SidebarRightTabInfo['tab']
+  readonly preparations: SideChatPreparations
   readonly t: TranslateNS<typeof NS>
+  readonly blocked?: boolean
 }
 
-/** Guide destination with the same temporary notice and a first-task composer. */
+/** Prepare an idle child; all editable UI comes from the native Conversation. */
 export function SideChatStartPage({
-  parentSessionId, createSideTask, onCreated, t, blocked = false,
-}: SideChatStartPageProps & { readonly blocked?: boolean }) {
-  const [draft, setDraft] = useState('')
-  const [pending, setPending] = useState(false)
+  parentSessionId, tab, preparations, t, blocked = false,
+}: SideChatStartPageProps) {
   const [error, setError] = useState<string | undefined>()
-  const create = async (): Promise<void> => {
-    const prompt = draft.trim()
-    if (prompt === '') {
-      setError(t('prompt.required'))
-      return
-    }
-    setPending(true)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    if (blocked) return
+    let mounted = true
     setError(undefined)
-    try {
-      const result = await createSideTask(parentSessionId, prompt)
+    void preparations.prepare(parentSessionId, tab.id).then(result => {
+      if (!mounted) return
       if (!result.ok) {
-        setError(t('create.failed', { message: result.error.message }))
+        setError(result.error.message)
         return
       }
-      onCreated(result.value)
-    } catch (cause: unknown) {
-      setError(t('create.failed', { message: cause instanceof Error ? cause.message : String(cause) }))
-    } finally {
-      setPending(false)
-    }
-  }
-  if (blocked) {
-    return (
-      <div style={{
-        display: 'flex', width: '100%', height: '100%', alignItems: 'center',
-        justifyContent: 'center', padding: 24, textAlign: 'center', opacity: 0.75,
-      }} data-side-chat-start="">
-        {t('create.blocked')}
-      </div>
-    )
-  }
+      preparations.transfer(parentSessionId, tab.id, address => {
+        tab.actions.openResource(sideTaskChatAddress(address), { replaceTab: true })
+      })
+    }).catch((cause: unknown) => {
+      if (mounted) setError(cause instanceof Error ? cause.message : String(cause))
+    })
+    // Hiding a tab or switching parents is not closing it. The explicit close
+    // handler owns cancellation and late-result cleanup across remounts.
+    return () => { mounted = false }
+  }, [parentSessionId, tab.id, preparations, blocked, attempt])
   return (
-    <div style={{
-      display: 'flex', width: '100%', height: '100%', alignItems: 'flex-end',
-      justifyContent: 'center', padding: 20, boxSizing: 'border-box',
-    }} data-side-chat-start="">
-      <div style={{ width: 'min(560px, 100%)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <textarea
-          autoFocus
-          aria-label={t('prompt.label')}
-          placeholder={t('prompt.placeholder')}
-          value={draft}
-          disabled={pending}
-          onChange={event => { setDraft(event.target.value); setError(undefined) }}
-          style={{
-            boxSizing: 'border-box', width: '100%', minHeight: 96, resize: 'vertical', padding: 12,
-            border: '1px solid var(--dsw-alias-border-primary, #8886)', borderRadius: 12,
-            color: 'var(--dsw-alias-text-primary, inherit)', background: 'var(--dsw-alias-bg-primary, transparent)',
-            font: 'inherit', lineHeight: 1.5,
-          }}
-        />
-        {error !== undefined && <p role="alert">{error}</p>}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={pending}
-            icon={<IconSendOutlineRegular />}
-            style={{ width: 32, height: 32, padding: 0 }}
-            aria-label={pending ? t('create.pending') : t('create')}
-            title={pending ? t('create.pending') : t('create')}
-            onClick={() => { void create() }}
-          />
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
+      alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }} data-side-chat-preparing="">
+      {blocked ? t('create.blocked') : error === undefined ? t('loading') : (
+        <>
+          <p role="alert">{t('create.failed', { message: error })}</p>
+          <Button onClick={() => { setAttempt(value => value + 1) }}>{t('retry')}</Button>
+        </>
+      )}
     </div>
   )
 }
@@ -285,7 +254,7 @@ function SideChatResourceTab({ tab, useResource, SessionProvider, renderSlot, t 
   )
 }
 
-function sideChatTab(createSideTask: CreateSideTask) {
+function sideChatTab(preparations: SideChatPreparations) {
   return function SideChatTab(props: SideChatTabProps) {
     const { useTabInfo, useSessions, useWorkspaces, ...rest } = props
     const { tab } = useTabInfo()
@@ -297,8 +266,8 @@ function sideChatTab(createSideTask: CreateSideTask) {
       return (
         <SideChatStartPage
           parentSessionId={props.sessionId}
-          createSideTask={createSideTask}
-          onCreated={(address) => { tab.actions.openResource(sideTaskChatAddress(address), { replaceTab: true }) }}
+          tab={tab}
+          preparations={preparations}
           t={props.t}
           blocked={isChild || isArchived}
         />
@@ -313,9 +282,10 @@ export function registerSideChat(
   ctx: Context,
   sessions: ISessions,
   t: TranslateNS<typeof NS>,
-  createSideTask: CreateSideTask,
+  preparations: SideChatPreparations,
 ): void {
-  ctx.effect(() => ctx.resources.register(sideChatResourceProvider(sessions)), 'side-tasks: chat resources')
+  const boundaries = new Map<SessionId, number>()
+  ctx.effect(() => ctx.resources.register(sideChatResourceProvider(sessions, boundaries)), 'side-tasks: chat resources')
   ctx.effect(() => ctx.sidebarRightTabs.register({
     id: SIDEBAR_CHAT_ID,
     kind: SIDE_CHAT_KIND,
@@ -346,7 +316,7 @@ export function registerSideChat(
     key: SIDEBAR_CHAT_ID,
     locale: NS,
     children: { [SIDE_CHAT_SLOT]: { kind: 'single', scope: 'session' } },
-  }, sideChatTab(createSideTask))), 'side-tasks: chat body')
+  }, sideChatTab(preparations))), 'side-tasks: chat body')
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({
     name: 'sidebar.right.pane.tab.title',
     key: SIDEBAR_CHAT_ID,
@@ -355,5 +325,12 @@ export function registerSideChat(
   ctx.effect(() => ctx.slots.inject(SIDE_CHAT_SLOT, () => ctx.slots.register({
     name: SIDE_CHAT_SLOT,
     locale: NS,
+    inject: (sessionId: SessionId) => {
+      const feed = sessions.binding(sessionId)?.eventSource
+      return { hooks: { sideChatOwn: {
+        getSnapshot: () => feed === undefined ? false : hasOwnSideChatTurn(feed.getSnapshot(), boundaries.get(sessionId)),
+        subscribe: (listener: () => void) => feed?.subscribe(listener) ?? (() => {}),
+      } } }
+    },
   }, ConversationSlotPanel)), 'side-tasks: chat conversation')
 }

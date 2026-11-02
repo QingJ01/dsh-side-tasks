@@ -122,6 +122,7 @@ const address = () => z.object({
   parentSessionId: z.string().readonly(),
   childSessionId: z.string().readonly(),
   mode: z.literal('continuable').readonly(),
+  contextThrough: z.number().int().min(-1).optional().readonly(),
 })
 const discardRequest = () => z.object({
   parentSessionId: z.string().readonly(),
@@ -201,6 +202,7 @@ const $remote = createTypertRemoteInfo({
             parentSessionId: { type: 'string' },
             childSessionId: { type: 'string' },
             mode: { type: 'string', enum: ['continuable'] },
+            contextThrough: { type: 'integer', minimum: -1 },
           },
           required: ['parentSessionId', 'childSessionId', 'mode'],
           additionalProperties: true,

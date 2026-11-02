@@ -10,6 +10,8 @@ export interface SideTaskAddress {
   readonly parentSessionId: SessionId
   readonly childSessionId: SessionId
   readonly mode: 'continuable'
+  /** Last inherited parent event; keeps the initial chat view empty. */
+  readonly contextThrough?: number
 }
 
 /** Parent/child pair to stop and archive when its side-chat tab closes. */

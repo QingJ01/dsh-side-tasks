@@ -6,11 +6,11 @@
 
 ## 功能
 
-- 会话右上角的**侧边聊天**小图标，点击在右侧栏当前面板打开首任务输入页，不分栏、不弹模态框；输入首个任务创建后，对话正文使用 Harness 正常的 Conversation UI。
-- 右侧栏“开始”页的原生卡片，使用 Harness 同款 `IconNewChatOutlineRegular` 线性图标，点击进入首个任务创建页。
+- 会话右上角的**侧边聊天**小图标，点击在右侧栏当前面板准备一个 idle 子会话，直接使用 Harness 原生 Conversation 和 composer，包括编辑器、指令菜单、权限控件和发送/停止行为；没有手写首消息输入框，也没有合成首消息。
+- 右侧栏“开始”页的原生卡片，使用 Harness 同款 `IconNewChatOutlineRegular` 线性图标，点击打开同一套原生侧边聊天。
 - 注册专用 `side-task` 子智能体后端，在创建时复制父会话已完成回合的上下文。
 - 子会话为空时显示“侧边聊天是临时聊天，关闭标签后会结束并移除”。
-- 使用 `caller` 投递方式独立执行，完成后不自动向主对话注入消息。
+- 创建完成后先释放 AgentHandle，再让原生发送流程冷恢复 child，避免重复持有写入句柄。
 - 独立的 `sidechat` 资源和关闭钩子，不影响模型创建的普通子智能体标签。
 - `sideTasks/discard` 通过持久化 `side-task` provider descriptor 校验所有权，停止子会话并归档。
 
@@ -48,9 +48,11 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 | 新建侧边聊天 | 创建一个 continuable 子会话，并将它的 `sidechat` 资源打开到右侧栏。 |
 | 关闭对应标签 | 调用 `sideTasks/discard`，停止并归档该子会话，不创建普通会话。 |
 | 仅收起整个右侧栏 | 标签仍然保留，不触发归档。 |
-| 任务完成 | 结果留在子会话记录中，不自动唤醒父会话模型。 |
+| 任务完成 | 结果留在子会话记录中；当前 Harness 冷恢复路径也可能通知并唤醒父会话。 |
 
 **删除语义**：Harness 的公开插件 API 提供的是持久化归档，不提供物理删除会话日志。本插件使用受支持的生命周期，不直接修改会话文件；界面中的“结束并移除”不代表擦除磁盘记录。
+
+**原生子会话控件限制**：当前 Harness 对 addressed subagent 隐藏模型选择器，child 继承父会话选定的模型。冷恢复后的完成通知使用运行时默认的父会话投递策略，可能唤醒父会话；插件没有修改运行时 manager 来拦截通知。
 
 **已知限制**：Harness 内置子智能体目录不会过滤已归档子会话，因此关闭后的侧边聊天仍可能在该目录中被枚举，直到 Harness 提供删除或目录过滤扩展点。本插件不会改写父会话的不可变日志来隐藏它。关闭会先把待归档地址写入浏览器本地队列再发 Remote 请求，并在后续插件激活时重试；重试有 5 次/7 天上限，并会跳过仍在别处打开的 child。浏览器本地存储丢失仍是可能漏归档的窗口。
 
@@ -76,7 +78,7 @@ pnpm --filter dsh-side-tasks pack --pack-destination dist
 
 ## 测试覆盖
 
-44 项测试覆盖：专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 参数/结果钉扎、真实 keyed SlotCore 所有权、标签地址与标题、归档优先的关闭生命周期、跨版本 descriptor 所有权校验、拒绝伪装标签误删、父 Agent 离线归档、持久化且有界的重试队列、存储 getter 抛错隔离、UI 异步注册失败回滚与 locale 冲突隔离、header 单面板打开右侧输入页、资源失败帧、子会话/归档父会话禁止创建、包导出完整性，以及临时空状态提示。
+54 项测试覆盖：专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 参数/结果钉扎、真实 keyed SlotCore 所有权、标签地址与标题、归档优先的关闭生命周期、跨版本 descriptor 所有权校验、拒绝伪装标签误删、父 Agent 离线归档、持久化且有界的重试队列、存储 getter 抛错隔离、UI 异步注册失败回滚与 locale 冲突隔离、idle 创建时释放 writer、StrictMode 去重、创建后关闭的迟到结果清理、原生 Conversation 接入、首回合边界、并发重试队列合并、header 单面板打开原生会话、资源失败帧、子会话/归档父会话禁止创建、包导出完整性，以及临时空状态提示。
 
 ## License
 

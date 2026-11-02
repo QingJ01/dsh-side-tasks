@@ -27,6 +27,7 @@ import {
 } from './discard-queue.ts'
 import { SideTaskAction } from './SideTaskAction.tsx'
 import { registerSideChat } from './sidebar-chat.tsx'
+import { SideChatPreparations } from './preparation.ts'
 import { en, NS, zh, type SideTaskKey } from './locales.ts'
 
 interface SideTasksRemote {
@@ -84,26 +85,38 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       return result
     }
 
-    registerSideChat(scope, sessions, scope.locale.bind(NS), createSideTask)
-    void flushPendingDiscards(storage, request => remote.discard(request), {
-      shouldSkip: request => sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0,
-    })
-
-    scope.effect(() => scope.sidebarRight.registerCloseHandler(SIDE_CHAT_KIND, (parentSessionId, tab) => {
-      if (tab.contentId === SIDE_CHAT_PAGE_ADDRESS) return
-      const address = parseSideTaskChatAddress(tab.contentId)
-      if (address === undefined || address.parentSessionId !== parentSessionId) {
-        console.error(`side-tasks: tab "${tab.id}" does not belong to session "${parentSessionId}"`)
-        return
-      }
-      const request = { parentSessionId, childSessionId: address.childSessionId }
+    const discard = (address: SideTaskAddress) => {
+      const request = { parentSessionId: address.parentSessionId, childSessionId: address.childSessionId }
       enqueuePendingDiscard(storage, request)
-      void remote.discard(request).then((result) => {
+      void remote.discard(request).then(result => {
         if (result.ok) removePendingDiscard(storage, request)
         else console.error(`side-tasks: discard failed: ${result.error.message}`)
       }).catch((error: unknown) => {
         console.error(`side-tasks: discard failed: ${String(error)}`)
       })
+    }
+    const preparations = new SideChatPreparations(createSideTask, discard)
+    scope.effect(() => () => { preparations.dispose() }, 'side-tasks: pending creations')
+    registerSideChat(scope, sessions, scope.locale.bind(NS), preparations)
+    void flushPendingDiscards(storage, request => remote.discard(request), {
+      shouldSkip: request => sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0
+        || scope.sidebarRight.openTabs.getSnapshot().some((tab: { contentId: string }) =>
+          parseSideTaskChatAddress(tab.contentId)?.childSessionId === request.childSessionId),
+    })
+
+    scope.effect(() => scope.sidebarRight.registerCloseHandler(SIDE_CHAT_KIND, (parentSessionId, tab) => {
+      if (tab.contentId === SIDE_CHAT_PAGE_ADDRESS) {
+        preparations.close(parentSessionId, tab.id)
+        return
+      }
+      const address = parseSideTaskChatAddress(tab.contentId)
+      if (address === undefined || address.parentSessionId !== parentSessionId) {
+        console.error(`side-tasks: tab "${tab.id}" does not belong to session "${parentSessionId}"`)
+        return
+      }
+      const otherOccurrences = scope.sidebarRight.openTabs.getSnapshot().some((other: { tabId: string; contentId: string }) =>
+        other.tabId !== tab.id && parseSideTaskChatAddress(other.contentId)?.childSessionId === address.childSessionId)
+      if (!otherOccurrences) discard(address)
     }), 'side-tasks: close lifecycle')
 
     scope.slots.inject('conversation.session.header.utilities', () => scope.slots.register({

@@ -16,6 +16,7 @@ export interface DiscardStorage {
 /** A close request plus its bounded retry metadata. */
 export interface PendingDiscard extends DiscardSideTaskRequest {
   readonly attempts: number
+  readonly createdAt: number
   readonly updatedAt: number
 }
 
@@ -44,6 +45,8 @@ function parse(value: string | null): PendingDiscard[] {
         parentSessionId: row.parentSessionId as SessionId,
         childSessionId: row.childSessionId as SessionId,
         attempts: typeof row.attempts === 'number' ? row.attempts : 0,
+        createdAt: typeof row.createdAt === 'number' ? row.createdAt
+          : typeof row.updatedAt === 'number' ? row.updatedAt : Date.now(),
         updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : Date.now(),
       })
     }
@@ -84,7 +87,8 @@ export function enqueuePendingDiscard(
   if (storage === undefined) return
   const current = readPendingDiscards(storage)
   if (current.some(row => keyOf(row) === keyOf(request))) return
-  write(storage, [...current, { ...request, attempts: 0, updatedAt: Date.now() }])
+  const now = Date.now()
+  write(storage, [...current, { ...request, attempts: 0, createdAt: now, updatedAt: now }])
 }
 
 /** Remove one acknowledged request. */
@@ -118,23 +122,25 @@ export async function flushPendingDiscards(
   const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS
   const maxAgeMs = options.maxAgeMs ?? MAX_AGE_MS
   const pending = readPendingDiscards(storage)
-  const keep: PendingDiscard[] = []
   for (const row of pending) {
     const request = { parentSessionId: row.parentSessionId, childSessionId: row.childSessionId }
-    try {
-      if (options.shouldSkip?.(request) === true) {
-        keep.push(row)
-        continue
+    if (options.shouldSkip?.(request) === true) continue
+    let drop = row.attempts >= maxAttempts || now - row.createdAt >= maxAgeMs
+    if (!drop) {
+      try {
+        const result = await discard(request)
+        drop = result.ok || result.error.code === 'gateway/bad-request'
+      } catch {
+        // Retry a transient failure below.
       }
-      const result = await discard(request)
-      if (result.ok) continue
-      if (result.error.code === 'gateway/bad-request') continue
-    } catch {
-      // Retry a transient failure below.
     }
+    // Never overwrite the snapshot captured before await: another close may
+    // enqueue a child or acknowledge/remove this one during the RPC.
+    const current = readPendingDiscards(storage)
+    const latest = current.find(item => keyOf(item) === keyOf(row))
+    if (latest === undefined || latest.attempts !== row.attempts || latest.updatedAt !== row.updatedAt) continue
     const attempts = row.attempts + 1
-    if (attempts >= maxAttempts || now - row.updatedAt >= maxAgeMs) continue
-    keep.push({ ...row, attempts, updatedAt: now })
+    write(storage, current.flatMap(item => keyOf(item) !== keyOf(row) ? [item]
+      : drop || attempts >= maxAttempts ? [] : [{ ...item, attempts, updatedAt: now }]))
   }
-  write(storage, keep)
 }

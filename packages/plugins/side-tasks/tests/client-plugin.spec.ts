@@ -115,7 +115,7 @@ describe('client creation and close lifecycle', () => {
           })),
         },
       },
-      sidebarRight: { openTab, registerCloseHandler },
+      sidebarRight: { openTab, registerCloseHandler, openTabs: { getSnapshot: () => [] } },
     }
     await apply(ctx as never)
 

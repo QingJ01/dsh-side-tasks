@@ -6,11 +6,11 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 
 ## Features
 
-- A small **Side chat** icon at the right of the conversation header; it opens the first-task start page in the current right-sidebar pane, without splitting or a modal. After the first task is created, the conversation body uses Harness's normal Conversation UI.
-- A native card on the right sidebar's Start page, using Harness's `IconNewChatOutlineRegular` and leading to a first-task start page.
+- A small **Side chat** icon at the right of the conversation header; it prepares one idle child in the current right-sidebar pane, then renders Harness's native Conversation and composer, including its editor, command menu, permission controls, and send/stop behavior. No handwritten first-message input or synthetic prompt is used.
+- A native card on the right sidebar's Start page, using Harness's `IconNewChatOutlineRegular` and opening the same native side chat.
 - A dedicated `side-task` subagent provider that copies the parent's completed-turn context once.
 - A centered temporary-chat notice while the child is empty.
-- Independent execution with `caller` delivery: completion does not inject a message into the parent conversation.
+- Blank preparation releases its AgentHandle before native input can cold-resume the child, preventing writer ownership collisions.
 - A dedicated `sidechat` resource and close handler; model-delegated subagent tabs are unaffected.
 - `sideTasks/discard` authenticates the persisted `side-task` provider descriptor, archives it with active work stopped, then best-effort drains the resident child.
 - Client activation is crash-isolated. `$mount` is local, so a disabled Host service is detected only when its first RPC fails.
@@ -49,9 +49,11 @@ dsh plugin --profile desktop add ./packages/plugins/side-tasks
 | Create a side chat | Allocates one continuable subagent child and opens its `sidechat` resource on the right. |
 | Close the corresponding tab | Calls `sideTasks/discard`, archives the child with work stopped, and drains it best-effort. No ordinary session is created. |
 | Merely collapse the right sidebar | Does not close the tab or trigger archival. |
-| Task completes | Updates the child transcript without waking the parent model. |
+| Task completes | Updates the child transcript. The current Harness cold-resume path may also notify and wake the parent. |
 
 **Deletion semantics:** Harness exposes durable archival, not physical deletion of session logs through its public plugin API. This plugin uses that supported lifecycle and never edits session files directly. The UI describes this as ending and removing the temporary chat, not erasing its files.
+
+**Native child controls:** Harness currently hides its model-selection seat for addressed subagents; the child inherits the parent's selected model. Cold-resumed children use the runtime's default parent settlement delivery, which may wake the parent. The plugin does not patch the runtime manager to suppress it.
 
 **Known limitations:** the built-in Harness subagent catalog does not filter archived children, so a closed side chat can still be enumerated there until Harness provides a deletion or catalog-filter seam. This plugin never rewrites the parent's immutable session log to hide it. Close writes a browser-local pending marker before its Remote request and retries it on later activations, bounded to five attempts and seven days, skipping children still retained elsewhere. Losing that browser storage remains a window where archival can be missed.
 

@@ -102,4 +102,30 @@ describe('pending discard queue', () => {
     expect(discard).not.toHaveBeenCalled()
     expect(readPendingDiscards(storage)).toEqual([expect.objectContaining(request)])
   })
+
+  it('preserves new closes and acknowledgements while a retry is awaiting RPC', async () => {
+    const storage = memoryStorage()
+    enqueuePendingDiscard(storage, request)
+    const pending = Promise.withResolvers<never>()
+    const flush = flushPendingDiscards(storage, () => pending.promise)
+    const other = { ...request, childSessionId: 'other' as never }
+    enqueuePendingDiscard(storage, other)
+    removePendingDiscard(storage, request)
+    pending.resolve({ ok: false, error: { code: 'gateway/internal' } } as never)
+    await flush
+    expect(readPendingDiscards(storage)).toEqual([expect.objectContaining(other)])
+  })
+
+  it('expires by original creation time even after recent failures', async () => {
+    const storage = memoryStorage()
+    enqueuePendingDiscard(storage, request)
+    const first = readPendingDiscards(storage)[0]!
+    storage.setItem('dsh-side-tasks:pending-discards:v1', JSON.stringify([
+      { ...first, createdAt: 10, updatedAt: 900 },
+    ]))
+    const discard = vi.fn()
+    await flushPendingDiscards(storage, discard, { now: 1000, maxAgeMs: 500 })
+    expect(discard).not.toHaveBeenCalled()
+    expect(readPendingDiscards(storage)).toEqual([])
+  })
 })

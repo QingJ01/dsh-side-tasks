@@ -1,47 +1,47 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { SideChatEmptyState, SideChatStartPage } from '../src/client/sidebar-chat.tsx'
+import { SideChatEmptyState, SideChatStartPage, hasOwnSideChatTurn } from '../src/client/sidebar-chat.tsx'
+import { SideChatPreparations } from '../src/client/preparation.ts'
 import { en, type SideTaskKey } from '../src/client/locales.ts'
 
+const t = ((key: SideTaskKey) => en[key]) as never
+const address = { parentSessionId: 'parent' as SessionId, childSessionId: 'child' as SessionId, mode: 'continuable' as const }
 afterEach(cleanup)
 
-describe('SideChatEmptyState', () => {
-  it('explains that closing the tab ends and archives the temporary chat', () => {
-    const t = ((key: SideTaskKey) => en[key]) as never
+describe('native side chat preparation', () => {
+  it('keeps inherited turns behind the empty notice until the child starts its own turn', () => {
+    const window = { entries: [{ type: 'event', event: { type: 'turn/start', seq: 3 } }], hasMore: false } as never
+    expect(hasOwnSideChatTurn(window, 10)).toBe(false)
+    expect(hasOwnSideChatTurn(window, 2)).toBe(true)
+    expect(hasOwnSideChatTurn(window, undefined)).toBe(true)
+  })
+  it('explains temporary chat closure', () => {
     render(<SideChatEmptyState t={t} />)
-    expect(screen.getByRole('heading', { name: en['empty.title'] })).toBeTruthy()
     expect(screen.getByText(en['empty.description'])).toBeTruthy()
-    expect(en['empty.description']).toContain('Closing its tab ends and archives it')
   })
 
-  it('blocks creation from a child or archived session', () => {
-    const t = ((key: SideTaskKey) => en[key]) as never
-    render(<SideChatStartPage
-      parentSessionId={'child' as SessionId}
-      createSideTask={vi.fn()}
-      onCreated={vi.fn()}
-      t={t}
-      blocked
-    />)
+  it('blocks child or archived parents before creating anything', () => {
+    const create = vi.fn()
+    render(<SideChatStartPage parentSessionId={'parent' as SessionId}
+      tab={{ id: 'draft', actions: {} } as never}
+      preparations={new SideChatPreparations(create, vi.fn())} t={t} blocked />)
     expect(screen.getByText(en['create.blocked'])).toBeTruthy()
-    expect(screen.queryByLabelText(en['prompt.label'])).toBeNull()
+    expect(create).not.toHaveBeenCalled()
   })
 
-  it('creates from the guide start page and opens the resulting child', async () => {
-    const t = ((key: SideTaskKey) => en[key]) as never
-    const address = {
-      parentSessionId: 'parent' as SessionId,
-      childSessionId: 'child' as SessionId,
-      mode: 'continuable' as const,
-    }
-    const createSideTask = vi.fn(async () => ({ ok: true as const, value: address }))
-    const onCreated = vi.fn()
-    render(<SideChatStartPage parentSessionId={'parent' as SessionId} createSideTask={createSideTask} onCreated={onCreated} t={t} />)
-    fireEvent.change(screen.getByLabelText(en['prompt.label']), { target: { value: 'inspect the failures' } })
-    fireEvent.click(screen.getByRole('button', { name: en.create }))
-    await waitFor(() => expect(createSideTask).toHaveBeenCalledWith('parent', 'inspect the failures'))
-    expect(onCreated).toHaveBeenCalledWith(address)
+  it('creates once under StrictMode and replaces the preparation with native Conversation', async () => {
+    const create = vi.fn(async () => ({ ok: true as const, value: address }))
+    const preparations = new SideChatPreparations(create, vi.fn())
+    const openResource = vi.fn(() => { preparations.close(address.parentSessionId, 'draft') })
+    const { container } = render(<StrictMode><SideChatStartPage parentSessionId={address.parentSessionId}
+      tab={{ id: 'draft', actions: { openResource } } as never}
+      preparations={preparations} t={t} /></StrictMode>)
+    await waitFor(() => expect(openResource).toHaveBeenCalledOnce())
+    expect(create).toHaveBeenCalledExactlyOnceWith('parent', '')
+    expect(openResource).toHaveBeenCalledWith(expect.stringContaining('/session/child?'), { replaceTab: true })
+    expect(container.querySelector('textarea')).toBeNull()
   })
 })

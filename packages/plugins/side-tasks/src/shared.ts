@@ -63,6 +63,7 @@ export function sideTaskChatAddress(address: SideTaskAddress): string {
     parent: address.parentSessionId,
     mode: address.mode,
   })
+  if (address.contextThrough !== undefined) query.set('contextThrough', String(address.contextThrough))
   return `${SIDEBAR_CHAT_ADDRESS}${encodeURIComponent(address.childSessionId)}?${query}`
 }
 
@@ -79,8 +80,12 @@ export function parseSideTaskChatAddress(value: string): SideTaskAddress | undef
   if (parts.length !== 2 || parts[0] !== 'session') return undefined
   const parentSessionId = url.searchParams.get('parent')
   if (parentSessionId === null || parentSessionId === '' || url.searchParams.get('mode') !== 'continuable') return undefined
+  const boundary = url.searchParams.get('contextThrough')
+  const contextThrough = boundary === null ? undefined : Number(boundary)
+  if (contextThrough !== undefined && (!Number.isSafeInteger(contextThrough) || contextThrough < -1)) return undefined
   try {
     return {
+      ...(contextThrough === undefined ? {} : { contextThrough }),
       parentSessionId: parentSessionId as SessionId,
       childSessionId: decodeURIComponent(parts[1] as string) as SessionId,
       mode: 'continuable',

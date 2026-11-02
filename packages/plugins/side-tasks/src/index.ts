@@ -5,6 +5,7 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-session-query'
 import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-workspace'
+import { createBlankSideTask } from './blank.ts'
 import { SideTaskProvider } from './provider.ts'
 import { discardSideTask, startSideTask } from './side-task.ts'
 import type {
@@ -49,6 +50,14 @@ export class SideTaskService extends TypertRemoteService {
     request: CreateSideTaskRequest,
     signal: AbortSignal,
   ): Promise<SideTaskAddress> {
+    if (agent.session.header.origin === 'subagent') throw new Error('Side chats require a top-level parent.')
+    if (this.ctx.workspaceRegistry.archivedSessionIds.includes(agent.id)) throw new Error('An archived parent cannot create a side chat.')
+    if (request.prompt.trim() === '') {
+      return await createBlankSideTask(
+        this.ctx.agents, agent, this.ctx.subagents.resolveMaxDepth(), signal,
+        id => this.ctx.workspaceRegistry.archiveSession(id, { stopActivity: true }),
+      )
+    }
     return await startSideTask(
       this.ctx.subagents,
       agent,
