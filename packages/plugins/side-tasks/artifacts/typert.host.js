@@ -157,6 +157,7 @@ const $remote = createTypertRemoteInfo({
       parameters: [
         {
           name: 'sourceSessionId',
+          source: 'json',
           codec: {
             mode: 'strict',
             typeSymbol: '@deepseek-ai/dsh-session/types#SessionId',

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
+import { validateTypertManifest } from '@deepseek-ai/dsh-typert-loader'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { SideTaskService } from '../lib/index.js'
 import { TYPERT } from '../lib/typert.host.js'
@@ -10,6 +11,10 @@ import { TYPERT_REMOTE } from '../lib/typert.remote-client.js'
 const methods = ['sideTasks/create', 'sideTasks/capabilities', 'sideTasks/configure', 'sideTasks/discard']
 
 describe('Typert Remote artifacts', () => {
+  it('passes the native Harness loader manifest validation', () => {
+    expect(() => validateTypertManifest('dsh-side-tasks', TYPERT)).not.toThrow()
+  })
+
   it('publishes independent creation, capability, configuration, and close endpoints', () => {
     expect(TYPERT.invocations.map(item => item.id).sort()).toEqual(methods.map(method => `dsh-side-tasks#${method}`).sort())
     expect(Object.keys(TYPERT_REMOTE.methods).sort()).toEqual([...methods].sort())
@@ -48,7 +53,7 @@ describe('Typert Remote artifacts', () => {
       source: parameter.source,
       typeSymbol: parameter.strictCodec?.typeSymbol,
     }))).toEqual([
-      { name: 'sourceSessionId', wire: 'sourceSessionId', source: undefined, typeSymbol: '@deepseek-ai/dsh-session/types#SessionId' },
+      { name: 'sourceSessionId', wire: 'sourceSessionId', source: 'json', typeSymbol: '@deepseek-ai/dsh-session/types#SessionId' },
       { name: 'request', wire: 'request', source: 'json', typeSymbol: 'dsh-side-tasks#CreateSideTaskRequest' },
     ])
     expect(create?.result.typeSymbol).toBe('dsh-side-tasks#SideTaskAddress')
