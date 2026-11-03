@@ -16,6 +16,7 @@ describe('client creation and close lifecycle', () => {
     let closeHandler: ((parent: SessionId, tab: { id: string; contentId: string }) => void) | undefined
     let injected: ((scope: unknown) => unknown) | undefined
     const openTabs: { sessionId: SessionId; tabId: string; kind: string; contentId: string }[] = []
+    const unmount = vi.fn(async () => {})
     const ctx = {
       effect: (callback: () => unknown) => {
         const disposer = callback()
@@ -38,7 +39,7 @@ describe('client creation and close lifecycle', () => {
       resources: { register: vi.fn(() => () => {}) },
       uiWorkspace: { supportsSideChatSessions: true },
       sidebarRightTabs: { register: vi.fn(() => () => {}) },
-      remote: { $mount: vi.fn(async () => async () => {}), sideTasks: { create: vi.fn(), discard } },
+      remote: { $mount: vi.fn(async () => unmount), sideTasks: { create: vi.fn(), discard } },
       sessions: {
         retain: vi.fn(),
         retainInfo: vi.fn(() => ({ getSnapshot: () => ({ referenceCount: 1 }) })),
@@ -57,14 +58,38 @@ describe('client creation and close lifecycle', () => {
     }
     return {
       ctx,
+      unmount,
       close: (tab: { id: string; contentId: string }) => closeHandler!('parent' as SessionId, tab),
       async disposeScope() {
         const disposers = scopeDisposers.splice(0, scopeDisposers.length)
         for (const disposer of disposers.reverse()) await disposer()
       },
+      startScopeDisposal(): Promise<unknown> {
+        const disposers = scopeDisposers.splice(0, scopeDisposers.length).reverse()
+        return Promise.all(disposers.map(disposer => disposer()))
+      },
       reinject: () => { injected!(ctx) },
     }
   }
+
+  it('unmounts the Remote only after an independently disposing scope queue settles', async () => {
+    const stalled = Promise.withResolvers<never>()
+    const discard = vi.fn(() => stalled.promise)
+    const scope = reinjectableContext(discard as never)
+    const teardown = await apply(scope.ctx as never)
+    scope.close({ id: 'tab-1', contentId: sideTaskChatAddress(address) })
+    await vi.waitFor(() => expect(discard).toHaveBeenCalledOnce())
+    const scopeDisposal = scope.startScopeDisposal()
+    let unmounted = false
+    const outer = teardown().then(() => { unmounted = true })
+    await Promise.resolve()
+    expect(scope.unmount).not.toHaveBeenCalled()
+    expect(unmounted).toBe(false)
+    stalled.resolve({ ok: false, error: { code: 'gateway/internal' } } as never)
+    await scopeDisposal
+    await outer
+    expect(scope.unmount).toHaveBeenCalledOnce()
+  })
 
   it('owns one queue per injection scope and never issues requests from a withdrawn one', async () => {
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))

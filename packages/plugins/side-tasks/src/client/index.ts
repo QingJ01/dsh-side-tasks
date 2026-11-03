@@ -117,8 +117,11 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     queues.add(discardQueue)
     scope.effect(() => async () => {
       discardQueue.stop()
-      queues.delete(discardQueue)
-      await discardQueue.dispose()
+      try {
+        await discardQueue.dispose()
+      } finally {
+        queues.delete(discardQueue)
+      }
     }, 'side-tasks: discard queue')
     scope.effect(() => ctx.on('connection/reset', () => { discardQueue.reset() }), 'side-tasks: discard reconnect')
     scope.slots.inject('shell.overlay', () => scope.slots.register({
@@ -186,9 +189,10 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     })
     await ui
   } catch (error: unknown) {
+    const pending = [...queues]
+    for (const queue of pending) queue.stop()
     await ui?.dispose().catch(() => undefined)
-    for (const queue of queues) queue.stop()
-    await Promise.allSettled([...queues].map(queue => queue.dispose()))
+    await Promise.allSettled(pending.map(queue => queue.dispose()))
     await unmountRemote().catch(() => undefined)
     console.error(`side-tasks: UI registration failed: ${String(error)}`)
     return async () => {}

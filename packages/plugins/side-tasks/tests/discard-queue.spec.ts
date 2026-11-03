@@ -285,6 +285,34 @@ describe('pending discard queue', () => {
     }
   })
 
+  it('preserves preloaded markers when storage fails after an initial healthy read', async () => {
+    vi.useFakeTimers()
+    const durable = memoryStorage()
+    enqueuePendingDiscard(durable, request)
+    let reads = 0
+    const flaky: DiscardStorage = {
+      getItem: key => {
+        reads++
+        if (reads === 1) return durable.getItem(key)
+        throw new Error('storage read failed')
+      },
+      setItem: () => { throw new Error('storage write failed') },
+      removeItem: () => { throw new Error('storage remove failed') },
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const queue = createDiscardQueue({ storage: flaky, discard: vi.fn() as never, shouldSkip: () => true })
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(reads).toBeGreaterThan(1)
+      expect(queue.hooks.pendingDiscards.getSnapshot().pending).toBe(1)
+      expect(warn).toHaveBeenCalledOnce()
+    } finally {
+      await queue.dispose()
+      warn.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
   it('serializes close requests and awaits the in-flight RPC before disposal', async () => {
     const storage = memoryStorage()
     const pending = Promise.withResolvers<never>()

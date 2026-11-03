@@ -206,7 +206,8 @@ class ResilientDiscardStorage implements DiscardStorage {
   getItem(key: string): string | null {
     if (!this.degraded && this.durable !== undefined) {
       try {
-        return this.durable.getItem(key)
+        this.memory = this.durable.getItem(key)
+        return this.memory
       } catch {
         this.degrade()
       }
