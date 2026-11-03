@@ -18,6 +18,7 @@ export function DiscardNotice({ usePendingDiscards, retryDiscards, t }:
   const state = usePendingDiscards((value: DiscardNoticeState) => value)
   if (state.pending === 0) return null
   return <aside role="alert" style={{
+    boxSizing: 'border-box',
     position: 'fixed', bottom: 20, right: 20, maxWidth: 'min(420px, calc(100vw - 40px))',
     padding: 16, borderRadius: 'var(--dsw-radius-lg)', background: 'var(--dsw-alias-toast-bg)',
     color: 'var(--dsw-alias-toast-label)', zIndex: 1100,
