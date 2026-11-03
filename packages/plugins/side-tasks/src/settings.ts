@@ -19,19 +19,33 @@ interface Commands {
 export class SideChatSettings {
   private readonly contexts = new Map<Agent, { text: string; dispose?: () => void }>()
   private readonly attaching = new Map<Agent, { controller: AbortController; promise: Promise<undefined> }>()
+  private readonly outstanding = new Set<Promise<undefined>>()
   private readonly serial = new Map<SessionId, Promise<unknown>>()
   private active = true
 
   constructor(private readonly ctx: Context) {
     ctx.on('agent/created', ({ agent }) => this.attach(agent))
-    ctx.on('agent/disposed', ({ agent }) => { this.release(agent) })
-    ctx.effect(() => () => {
-      this.active = false
-      for (const agent of new Set([...this.contexts.keys(), ...this.attaching.keys()])) {
-        this.release(agent)
+    ctx.on('agent/disposed', ({ agent }) => this.release(agent))
+    ctx.on('agent/pre-step', async ({ agent }, next) => {
+      if (!this.owned(agent)) return next()
+      try {
+        await this.attach(agent)
+      } catch (error: unknown) {
+        this.warnAttachFailure(agent)
+        throw error
       }
+      return next()
+    })
+    ctx.effect(() => async () => {
+      this.active = false
+      const agents = new Set([...this.contexts.keys(), ...this.attaching.keys()])
+      await Promise.allSettled([...agents].map(agent => this.release(agent)))
+      await Promise.allSettled([...this.outstanding])
     }, 'side-tasks: child settings middleware')
-    for (const agent of ctx.agents.list()) this.attach(agent)
+    for (const agent of ctx.agents.list()) {
+      const pending = this.attach(agent)
+      if (pending !== undefined) void pending.catch(() => { this.warnAttachFailure(agent) })
+    }
   }
 
   exclusive<T>(id: SessionId, action: () => Promise<T>): Promise<T> {
@@ -50,11 +64,29 @@ export class SideChatSettings {
       && isSideTaskDescriptor(agent.session.snapshotEvents(), agent.session.inheritedEventCount)?.childSessionId === agent.id
   }
 
-  private release(agent: Agent): void {
-    this.attaching.get(agent)?.controller.abort()
+  private warnAttachFailure(agent: Agent): void {
+    this.ctx.logger.warn(
+      `side-tasks: child "${agent.id}": context attachment failed; side-chat admission was blocked.`,
+    )
+  }
+
+  private warnContextFallback(agent: Agent): void {
+    this.ctx.logger.warn(
+      `side-tasks: child "${agent.id}": source context refresh failed; using saved context. Restart or reopen the side chat to retry.`,
+    )
+  }
+
+  private async release(agent: Agent): Promise<void> {
+    const pending = this.attaching.get(agent)
+    pending?.controller.abort()
     this.attaching.delete(agent)
-    this.contexts.get(agent)?.dispose?.()
+    try {
+      this.contexts.get(agent)?.dispose?.()
+    } catch {
+      this.ctx.logger.warn(`side-tasks: child "${agent.id}": context cleanup failed.`)
+    }
     this.contexts.delete(agent)
+    await pending?.promise.catch(() => undefined)
   }
 
   /**
@@ -63,14 +95,19 @@ export class SideChatSettings {
    * the inherited background; source failures fail this side-chat admission.
    */
   private attach(agent: Agent): Promise<undefined> | undefined {
-    try {
-      if (!this.active || !this.owned(agent)) return undefined
-      const pending = this.attaching.get(agent)
-      if (pending !== undefined) return pending.promise
-      if (this.contexts.has(agent)) return undefined
-      const descriptor = isSideTaskDescriptor(agent.session.snapshotEvents(), agent.session.inheritedEventCount)
-      if (descriptor === undefined || descriptor.childSessionId !== agent.id) return undefined
-      const record = sideTaskContext(agent.session.snapshotEvents(), agent.session.inheritedEventCount, descriptor.sourceSessionId)
+    if (!this.active || !this.owned(agent)) return undefined
+    const pending = this.attaching.get(agent)
+    if (pending !== undefined) return pending.promise
+    if (this.contexts.has(agent)) return undefined
+    const descriptor = isSideTaskDescriptor(agent.session.snapshotEvents(), agent.session.inheritedEventCount)
+    if (descriptor === undefined || descriptor.childSessionId !== agent.id) return undefined
+    const record = sideTaskContext(
+      agent.session.snapshotEvents(),
+      agent.session.inheritedEventCount,
+      descriptor.sourceSessionId,
+    )
+    const controller = new AbortController()
+    const promise = Promise.resolve().then(async () => {
       let contextState: { text: string; dispose?: () => void } | undefined
       if (record !== undefined) {
         contextState = {
@@ -79,46 +116,62 @@ export class SideChatSettings {
         }
         this.contexts.set(agent, contextState)
       }
-      const controller = new AbortController()
-      const promise = Promise.resolve().then(async () => {
-        let text = record?.text
-        if (!this.ctx.workspaceRegistry.archivedSessionIds.includes(descriptor.sourceSessionId)) {
-          try {
-            using source = await this.ctx.sessionQuery.observeSession(descriptor.sourceSessionId, {
-              projectionMode: 'all',
-              signal: controller.signal,
-            })
-            text = inheritedContextText(source.events) ?? ''
-            if (text !== record?.text && this.active && !controller.signal.aborted) {
-              appendPluginRecord(agent.session, 'plugin:side-tasks/context', {
-                version: 1, sourceSessionId: descriptor.sourceSessionId, text,
-              })
-            }
-          } catch (error: unknown) {
-            if (!(error instanceof SessionQueryError) || error.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') throw error
+      let text = record?.text
+      let sourceReadFailed = false
+      if (!this.ctx.workspaceRegistry.archivedSessionIds.includes(descriptor.sourceSessionId)) {
+        try {
+          using source = await this.ctx.sessionQuery.observeSession(descriptor.sourceSessionId, {
+            projectionMode: 'all',
+            signal: controller.signal,
+          })
+          text = inheritedContextText(source.events) ?? ''
+        } catch (error: unknown) {
+          if (controller.signal.aborted) throw error
+          if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
+            sourceReadFailed = true
+          } else if (record !== undefined) {
+            sourceReadFailed = true
+            this.warnContextFallback(agent)
+          } else {
+            throw error
           }
         }
-        if (text !== undefined && this.active && !controller.signal.aborted && contextState?.text !== text) {
-          contextState?.dispose?.()
-          contextState = {
-            text,
-            ...(text === '' ? {} : { dispose: registerInheritedContext(agent.ctx, text) }),
-          }
-          this.contexts.set(agent, contextState)
+        if (sourceReadFailed && record === undefined) text = undefined
+      }
+      if (!sourceReadFailed && text !== record?.text && this.active && !controller.signal.aborted) {
+        appendPluginRecord(agent.session, 'plugin:side-tasks/context', {
+          version: 1, sourceSessionId: descriptor.sourceSessionId, text: text ?? '',
+        })
+      }
+      if (text !== undefined && this.active && !controller.signal.aborted && contextState?.text !== text) {
+        const nextContext = {
+          text,
+          ...(text === '' ? {} : { dispose: registerInheritedContext(agent.ctx, text) }),
         }
-        return undefined
-      }).catch(error => {
-        if (!this.active || controller.signal.aborted) return undefined
-        throw error
-      }).finally(() => {
-        if (this.attaching.get(agent)?.controller === controller) this.attaching.delete(agent)
-      })
-      this.attaching.set(agent, { controller, promise })
-      return promise
-    } catch {
-      // A settings failure must never break creation of an unrelated Agent.
+        contextState?.dispose?.()
+        contextState = nextContext
+        this.contexts.set(agent, contextState)
+      }
       return undefined
-    }
+    }).catch(error => {
+      if (!this.active || controller.signal.aborted) return undefined
+      try {
+        this.contexts.get(agent)?.dispose?.()
+      } catch {
+        this.ctx.logger.warn(`side-tasks: child "${agent.id}": context cleanup failed.`)
+      }
+      this.contexts.delete(agent)
+      throw error
+    }).finally(() => {
+      if (this.attaching.get(agent)?.controller === controller) this.attaching.delete(agent)
+    })
+    this.attaching.set(agent, { controller, promise })
+    this.outstanding.add(promise)
+    void promise.then(
+      () => { this.outstanding.delete(promise) },
+      () => { this.outstanding.delete(promise) },
+    )
+    return promise
   }
 
   configure(request: ConfigureSideTaskRequest, signal: AbortSignal): Promise<ConfigureSideTaskResult> {

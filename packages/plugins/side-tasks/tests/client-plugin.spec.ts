@@ -68,6 +68,8 @@ describe('client creation and close lifecycle', () => {
     } } } | undefined
     let closeHandler: ((parent: SessionId, tab: { id: string; contentId: string }) => void) | undefined
     let bodyRegistration: { name?: string; children?: Record<string, unknown> } | undefined
+    let overlayRegistration: { inject?: () => Record<string, unknown> } | undefined
+    let connectionReset: (() => void) | undefined
     const create = vi.fn(async () => ({ ok: true as const, value: address }))
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
     const openTab = vi.fn()
@@ -82,9 +84,18 @@ describe('client creation and close lifecycle', () => {
     })
     const unmountRemote = vi.fn(async () => {})
     const mountRemote = vi.fn(async () => unmountRemote)
+    const on = vi.fn((name: string, handler: () => void) => {
+      if (name === 'connection/reset') connectionReset = handler
+      return () => {}
+    })
+    const uiDispose = vi.fn(async () => {})
     const ctx = {
       effect: (callback: () => unknown) => callback(),
-      inject: (_dependencies: string[], callback: (scope: unknown) => unknown) => callback(ctx),
+      on,
+      inject: (_dependencies: string[], callback: (scope: unknown) => unknown) => {
+        callback(ctx)
+        return { dispose: uiDispose }
+      },
       locale: { register: vi.fn(), bind: vi.fn(() => (key: string) => key) },
       slots: {
         entries: () => [{ component: () => null, options: {}, inject: () => ({}) }],
@@ -92,9 +103,18 @@ describe('client creation and close lifecycle', () => {
         inject: (seat: string, callback: () => unknown) => {
           const value = callback() as typeof registration
           if (seat === 'conversation.session.header.utilities') registration = value
+          if (seat === 'shell.overlay') {
+            overlayRegistration = (value as {
+              definition: { inject?: () => Record<string, unknown> }
+            }).definition
+          }
           return value
         },
-        register: (definition: { name?: string; children?: Record<string, unknown> }) => {
+        register: (definition: {
+          name?: string
+          children?: Record<string, unknown>
+          inject?: () => Record<string, unknown>
+        }) => {
           if (definition.name !== undefined) registeredSlots.push(definition.name)
           if (definition.name === 'sidebar.right.pane.tab') bodyRegistration = definition
           return { definition }
@@ -106,7 +126,7 @@ describe('client creation and close lifecycle', () => {
       remote: { $mount: mountRemote, sideTasks: { create, discard } },
       sessions: {
         retain: vi.fn(),
-        retainInfo: vi.fn(),
+        retainInfo: vi.fn(() => ({ getSnapshot: () => ({ referenceCount: 1 }) })),
         binding: vi.fn(),
         refreshProjections,
         list: {
@@ -130,9 +150,16 @@ describe('client creation and close lifecycle', () => {
       sidebarRight: { openTab, focus, isExpanded: () => expanded, toggleExpanded,
         registerCloseHandler, openTabs: { getSnapshot: () => openTabs } },
     }
-    await apply(ctx as never)
+    const dispose = await apply(ctx as never)
 
     expect(registeredSlots.filter(name => name.startsWith('conversation.input.'))).toEqual([])
+    expect(overlayRegistration?.inject).toEqual(expect.any(Function))
+    expect(connectionReset).toEqual(expect.any(Function))
+    const noticeFace = overlayRegistration!.inject!()
+    expect(noticeFace.hooks).toBeDefined()
+    expect(typeof noticeFace.retryDiscards).toBe('function')
+    connectionReset!()
+    noticeFace.retryDiscards()
     expect(mountRemote).toHaveBeenCalledOnce()
     expect(registration).toBeDefined()
     expect(registerCloseHandler).toHaveBeenCalledWith(SIDE_CHAT_KIND, expect.any(Function))
@@ -192,5 +219,6 @@ describe('client creation and close lifecycle', () => {
       childSessionId: 'existing',
     }))
     expect(create).not.toHaveBeenCalled()
+    await dispose()
   })
 })
