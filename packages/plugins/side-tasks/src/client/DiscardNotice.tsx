@@ -24,7 +24,7 @@ export function DiscardNotice({ usePendingDiscards, retryDiscards, t }:
     boxShadow: 'var(--dsw-shadow-lv3)', pointerEvents: 'auto',
   }}>
     <p style={{ margin: '0 0 12px' }}>{t('discard.pending', { count: state.pending })}</p>
-    <Button size="sm" disabled={state.busy} onClick={retryDiscards}>
+    <Button variant="primary" size="sm" disabled={state.busy} onClick={retryDiscards}>
       {t(state.busy ? 'discard.retrying' : 'retry')}
     </Button>
   </aside>
