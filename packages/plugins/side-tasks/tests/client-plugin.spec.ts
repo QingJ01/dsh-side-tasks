@@ -11,6 +11,80 @@ const address: SideTaskAddress = {
 }
 
 describe('client creation and close lifecycle', () => {
+  function reinjectableContext(discard: (request: unknown) => Promise<unknown>) {
+    const scopeDisposers: Array<() => unknown> = []
+    let closeHandler: ((parent: SessionId, tab: { id: string; contentId: string }) => void) | undefined
+    let injected: ((scope: unknown) => unknown) | undefined
+    const openTabs: { sessionId: SessionId; tabId: string; kind: string; contentId: string }[] = []
+    const ctx = {
+      effect: (callback: () => unknown) => {
+        const disposer = callback()
+        if (typeof disposer === 'function') scopeDisposers.push(disposer as () => unknown)
+        return disposer
+      },
+      on: () => () => {},
+      inject: (_dependencies: string[], callback: (scope: unknown) => unknown) => {
+        injected = callback
+        callback(ctx)
+        return { dispose: async () => {} }
+      },
+      locale: { register: vi.fn(), bind: vi.fn(() => (key: string) => key) },
+      slots: {
+        entries: () => [],
+        subscribe: () => () => {},
+        inject: (_seat: string, callback: () => unknown) => callback(),
+        register: (definition: unknown) => ({ definition }),
+      },
+      resources: { register: vi.fn(() => () => {}) },
+      uiWorkspace: { supportsSideChatSessions: true },
+      sidebarRightTabs: { register: vi.fn(() => () => {}) },
+      remote: { $mount: vi.fn(async () => async () => {}), sideTasks: { create: vi.fn(), discard } },
+      sessions: {
+        retain: vi.fn(),
+        retainInfo: vi.fn(() => ({ getSnapshot: () => ({ referenceCount: 1 }) })),
+        binding: vi.fn(),
+        refreshProjections: vi.fn(),
+        list: { getSnapshot: vi.fn(() => ({ byId: {}, projectionsBySession: {} })) },
+      },
+      sidebarRight: {
+        openTab: vi.fn(), focus: vi.fn(), isExpanded: () => true, toggleExpanded: vi.fn(),
+        registerCloseHandler: (_kind: string, handler: typeof closeHandler) => {
+          closeHandler = handler
+          return () => {}
+        },
+        openTabs: { getSnapshot: () => openTabs },
+      },
+    }
+    return {
+      ctx,
+      close: (tab: { id: string; contentId: string }) => closeHandler!('parent' as SessionId, tab),
+      async disposeScope() {
+        const disposers = scopeDisposers.splice(0, scopeDisposers.length)
+        for (const disposer of disposers.reverse()) await disposer()
+      },
+      reinject: () => { injected!(ctx) },
+    }
+  }
+
+  it('owns one queue per injection scope and never issues requests from a withdrawn one', async () => {
+    const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
+    const scope = reinjectableContext(discard as never)
+    const teardown = await apply(scope.ctx as never)
+    const contentId = sideTaskChatAddress(address)
+    await scope.disposeScope()
+    scope.close({ id: 'tab-1', contentId })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(discard).not.toHaveBeenCalled()
+
+    scope.reinject()
+    scope.close({ id: 'tab-2', contentId })
+    await vi.waitFor(() => expect(discard).toHaveBeenCalledWith({
+      parentSessionId: 'parent', childSessionId: 'child',
+    }))
+    expect(discard).toHaveBeenCalledOnce()
+    await teardown()
+  })
+
   it('stays inert instead of failing boot when its Remote contribution cannot mount', async () => {
     expect(inject).not.toContain('remote.sideTasks')
     const injectChild = vi.fn()

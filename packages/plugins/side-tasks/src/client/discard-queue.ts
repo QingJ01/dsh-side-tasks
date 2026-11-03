@@ -45,7 +45,8 @@ function parse(value: string | null): PendingDiscard[] {
       rows.push({
         parentSessionId: row.parentSessionId as SessionId,
         childSessionId: row.childSessionId as SessionId,
-        attempts: typeof row.attempts === 'number' ? row.attempts : 0,
+        attempts: typeof row.attempts === 'number' && Number.isInteger(row.attempts) && row.attempts >= 0
+          ? row.attempts : 0,
         createdAt: typeof row.createdAt === 'number' ? row.createdAt
           : typeof row.updatedAt === 'number' ? row.updatedAt : Date.now(),
         updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : Date.now(),
@@ -117,7 +118,6 @@ export function updatePendingDiscard(
 export interface FlushPendingDiscardsOptions {
   readonly now?: number
   readonly maxAttempts?: number
-  readonly maxAgeMs?: number
   readonly request?: DiscardSideTaskRequest
   readonly force?: boolean
   readonly shouldSkip?: ((request: DiscardSideTaskRequest) => boolean) | undefined
@@ -179,6 +179,8 @@ export interface DiscardQueue {
   enqueue(request: DiscardSideTaskRequest, forceFirstAttempt?: boolean): void
   retry(): void
   reset(): void
+  /** Stop admission, timers, and further requests without awaiting the drain. */
+  stop(): void
   dispose(): Promise<void>
 }
 
@@ -186,47 +188,55 @@ interface DiscardQueueOptions {
   readonly storage?: DiscardStorage | undefined
   readonly discard: (request: DiscardSideTaskRequest) => Promise<RemoteResult<DiscardSideTaskResult>>
   readonly shouldSkip?: ((request: DiscardSideTaskRequest) => boolean) | undefined
+  /**
+   * Re-checked immediately before a forced first attempt. A close queued
+   * behind another request must not archive a child reopened meanwhile.
+   */
+  readonly canForce?: ((request: DiscardSideTaskRequest) => boolean) | undefined
 }
 
 class ResilientDiscardStorage implements DiscardStorage {
-  private memory: string | null | undefined
-  private warned = false
+  private memory: string | null = null
+  private degraded = false
 
   constructor(private readonly durable: DiscardStorage | undefined) {
-    if (durable === undefined) this.warn()
+    if (durable === undefined) this.degrade()
   }
 
   getItem(key: string): string | null {
-    if (this.memory !== undefined) return this.memory
-    try {
-      return this.durable?.getItem(key) ?? null
-    } catch {
-      this.warn()
-      return null
+    if (!this.degraded && this.durable !== undefined) {
+      try {
+        return this.durable.getItem(key)
+      } catch {
+        this.degrade()
+      }
     }
+    return this.memory
   }
 
   setItem(key: string, value: string): void {
     this.memory = value
+    if (this.degraded || this.durable === undefined) return
     try {
-      this.durable?.setItem(key, value)
+      this.durable.setItem(key, value)
     } catch {
-      this.warn()
+      this.degrade()
     }
   }
 
   removeItem(key: string): void {
     this.memory = null
+    if (this.degraded || this.durable === undefined) return
     try {
-      this.durable?.removeItem(key)
+      this.durable.removeItem(key)
     } catch {
-      this.warn()
+      this.degrade()
     }
   }
 
-  private warn(): void {
-    if (this.warned) return
-    this.warned = true
+  private degrade(): void {
+    if (this.degraded) return
+    this.degraded = true
     console.warn('side-tasks: local storage is unavailable; pending closes will retry while this application remains open.')
   }
 }
@@ -246,6 +256,7 @@ export function createDiscardQueue(options: DiscardQueueOptions): DiscardQueue {
   let disposed = false
   let inFlightKey: string | undefined
   const forceFirst = new Set<string>()
+  const rechecks = new Map<string, number>()
 
   const publish = (): void => {
     const next = { pending: readPendingDiscards(storage).length, busy: snapshot.busy }
@@ -282,13 +293,22 @@ export function createDiscardQueue(options: DiscardQueueOptions): DiscardQueue {
         const request = { parentSessionId: row.parentSessionId, childSessionId: row.childSessionId }
         const key = keyOf(request)
         seen.add(key)
-        const force = forceFirst.delete(key)
+        // A close queued behind another request can dispatch after its child
+        // was reopened, so the bypass is confirmed again at dispatch time.
+        const force = forceFirst.delete(key) && (options.canForce?.(request) ?? true)
+        if (!force && options.shouldSkip?.(request) === true) {
+          const recheck = (rechecks.get(key) ?? 0) + 1
+          rechecks.set(key, recheck)
+          schedule(recheck)
+          publish()
+          continue
+        }
         inFlightKey = key
         await flushPendingDiscards(storage, options.discard, {
           request,
           force,
-          shouldSkip: options.shouldSkip,
         })
+        rechecks.delete(key)
         if (inFlightKey === key) inFlightKey = undefined
         const latest = readPendingDiscards(storage).find(item => keyOf(item) === key)
         if (latest !== undefined && latest.attempts > row.attempts && latest.terminal !== true) {
@@ -332,12 +352,14 @@ export function createDiscardQueue(options: DiscardQueueOptions): DiscardQueue {
     enqueue(request, forceFirstAttempt = false) {
       enqueuePendingDiscard(storage, request)
       if (forceFirstAttempt && inFlightKey !== keyOf(request)) forceFirst.add(keyOf(request))
+      rechecks.delete(keyOf(request))
       publish()
       start()
     },
     retry() {
       if (disposed) return
       const now = Date.now()
+      rechecks.clear()
       for (const row of readPendingDiscards(storage)) {
         updatePendingDiscard(storage, row, item => ({
           ...item, attempts: 0, updatedAt: now, terminal: false,
@@ -349,6 +371,7 @@ export function createDiscardQueue(options: DiscardQueueOptions): DiscardQueue {
     reset() {
       if (disposed) return
       const now = Date.now()
+      rechecks.clear()
       for (const row of readPendingDiscards(storage)) {
         if (row.terminal === true) continue
         updatePendingDiscard(storage, row, item => ({ ...item, attempts: 0, updatedAt: now }))
@@ -356,12 +379,15 @@ export function createDiscardQueue(options: DiscardQueueOptions): DiscardQueue {
       publish()
       start()
     },
-    async dispose() {
+    stop() {
       disposed = true
       rerun = false
       if (retryTimer !== undefined) clearTimeout(retryTimer)
       retryTimer = undefined
       retryAt = undefined
+    },
+    async dispose() {
+      queue.stop()
       await running
       publish()
     },

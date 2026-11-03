@@ -254,12 +254,28 @@ describe('side-chat settings and cold context', () => {
       expect(context).toHaveBeenCalledOnce()
       expect(ctx.logger.warn.mock.calls[0]![0]).toContain('using saved context')
       expect(ctx.logger.warn.mock.calls[0]![0]).not.toContain('saved child context')
+      expect(ctx.logger.warn.mock.calls[0]![0]).toContain('Restart Harness to retry the refresh.')
       expect(ctx.logger.warn.mock.calls[0]![0]).not.toContain('sensitive source detail')
       await new Promise(resolve => setImmediate(resolve))
       expect(onUnhandled).not.toHaveBeenCalled()
     } finally {
       process.off('unhandledRejection', onUnhandled)
     }
+  })
+
+  it('does not register saved context when an existing child is disposed before attach starts', async () => {
+    const { ctx, child, context, append, unload } = fixture({
+      existing: true,
+      contextRecord: 'saved child context',
+    })
+    const disposed = ctx.on.mock.calls.find(([name]) => name === 'agent/disposed')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    const release = disposed({ agent: child })
+    const teardown = unload[0]!()
+    await Promise.all([release, teardown])
+    expect(context).not.toHaveBeenCalled()
+    expect(ctx.sessionQuery.observeSession).not.toHaveBeenCalled()
+    expect(append).not.toHaveBeenCalled()
   })
 
   it('uses saved empty context after a refresh failure and warns without persisting a fresh record', async () => {
@@ -272,9 +288,35 @@ describe('side-chat settings and cold context', () => {
       (event: { agent: typeof child }) => Promise<void>
     await expect(created({ agent: child })).resolves.toBeUndefined()
     expect(ctx.logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('using saved context. Restart or reopen the side chat to retry.'),
+      expect.stringContaining('using saved context. Restart Harness to retry the refresh.'),
     )
     expect(append).not.toHaveBeenCalled()
+  })
+
+  it('disposes an acquired source when context transformation fails without reporting a read fallback', async () => {
+    const { ctx, child, context, observation } = fixture()
+    const broken = { ...observation }
+    Object.defineProperty(broken, 'events', {
+      get() { throw new Error('source transformation failed') },
+    })
+    ctx.sessionQuery.observeSession = vi.fn(async () => broken as never)
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await expect(created({ agent: child })).rejects.toThrow('source transformation failed')
+    expect(observation[Symbol.dispose]).toHaveBeenCalledOnce()
+    expect(context).not.toHaveBeenCalled()
+    expect(ctx.logger.warn).not.toHaveBeenCalled()
+  })
+
+  it('does not classify an observation disposal failure as a source read outage', async () => {
+    const { ctx, child, context, observation } = fixture()
+    observation[Symbol.dispose].mockImplementation(() => { throw new Error('observation disposal failed') })
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await expect(created({ agent: child })).rejects.toThrow('observation disposal failed')
+    expect(observation[Symbol.dispose]).toHaveBeenCalledOnce()
+    expect(context).not.toHaveBeenCalled()
+    expect(ctx.logger.warn).not.toHaveBeenCalled()
   })
 
   it('does not turn child context persistence failure into a successful fallback', async () => {

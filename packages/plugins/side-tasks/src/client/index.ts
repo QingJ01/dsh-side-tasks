@@ -75,7 +75,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     return async () => {}
   }
   let ui: ReturnType<typeof ctx.inject> | undefined
-  let discardQueue: DiscardQueue | undefined
+  const queues = new Set<DiscardQueue>()
   try {
     ui = ctx.inject(['resources', 'sidebarRightTabs', 'remote.sideTasks'], (scope) => {
     const remote = (scope.remote as SideTaskRemote).sideTasks
@@ -104,23 +104,34 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0
       || scope.sidebarRight.openTabs.getSnapshot().some((tab: { contentId: string }) =>
         parseSideTaskChatAddress(tab.contentId)?.childSessionId === request.childSessionId)
-    discardQueue = createDiscardQueue({
+    const discardQueue = createDiscardQueue({
       storage,
       discard: request => remote.discard(request),
       shouldSkip: shouldSkipDiscard,
+      // Only the closing tab's own deferred release may be bypassed; a child
+      // reopened while this request waited keeps its reference protection.
+      canForce: request => !scope.sidebarRight.openTabs.getSnapshot().some((tab: { contentId: string }) =>
+        parseSideTaskChatAddress(tab.contentId)?.childSessionId === request.childSessionId)
+        && sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount <= 1,
     })
-    scope.effect(() => ctx.on('connection/reset', () => { discardQueue?.reset() }), 'side-tasks: discard reconnect')
+    queues.add(discardQueue)
+    scope.effect(() => async () => {
+      discardQueue.stop()
+      queues.delete(discardQueue)
+      await discardQueue.dispose()
+    }, 'side-tasks: discard queue')
+    scope.effect(() => ctx.on('connection/reset', () => { discardQueue.reset() }), 'side-tasks: discard reconnect')
     scope.slots.inject('shell.overlay', () => scope.slots.register({
       name: 'shell.overlay',
       id: 'side-tasks.discard-notice',
       locale: NS,
       inject: () => ({
-        hooks: discardQueue!.hooks,
-        retryDiscards: () => { discardQueue?.retry() },
+        hooks: discardQueue.hooks,
+        retryDiscards: () => { discardQueue.retry() },
       }),
     }, DiscardNotice))
     const preparations = new SideChatPreparations((parent, prompt) => createSideTask(parent, prompt), address => {
-      discardQueue?.enqueue({
+      discardQueue.enqueue({
         parentSessionId: address.parentSessionId,
         childSessionId: address.childSessionId,
       })
@@ -143,7 +154,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
         other.tabId !== tab.id && parseSideTaskChatAddress(other.contentId)?.childSessionId === address.childSessionId)
       if (!otherOccurrences) {
         const referenceCount = sessions.retainInfo(address.childSessionId).getSnapshot().referenceCount
-        discardQueue?.enqueue({
+        discardQueue.enqueue({
           parentSessionId: address.parentSessionId,
           childSessionId: address.childSessionId,
         }, referenceCount <= 1)
@@ -176,14 +187,27 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     await ui
   } catch (error: unknown) {
     await ui?.dispose().catch(() => undefined)
-    await discardQueue?.dispose().catch(() => undefined)
+    for (const queue of queues) queue.stop()
+    await Promise.allSettled([...queues].map(queue => queue.dispose()))
     await unmountRemote().catch(() => undefined)
     console.error(`side-tasks: UI registration failed: ${String(error)}`)
     return async () => {}
   }
   return async () => {
-    await ui.dispose()
-    await discardQueue?.dispose()
+    // Admission stops before the UI releases its tabs, so no timer can issue
+    // another request while its sessions are being released.
+    const pending = [...queues]
+    for (const queue of pending) queue.stop()
+    const failures: unknown[] = []
+    try {
+      await ui.dispose()
+    } catch (error: unknown) {
+      failures.push(error)
+    }
+    for (const result of await Promise.allSettled(pending.map(queue => queue.dispose()))) {
+      if (result.status === 'rejected') failures.push(result.reason)
+    }
     await unmountRemote()
+    if (failures.length > 0) throw failures[0]
   }
 }

@@ -126,11 +126,74 @@ describe('pending discard queue', () => {
       { ...first, createdAt: 10, updatedAt: 900 },
     ]))
     const discard = vi.fn(async () => { throw new Error('still unavailable') })
-    await flushPendingDiscards(storage, discard, { now: 1000, maxAgeMs: 500 })
+    await flushPendingDiscards(storage, discard, { now: 1000 })
     expect(discard).toHaveBeenCalledOnce()
     expect(readPendingDiscards(storage)).toEqual([
       expect.objectContaining({ ...request, createdAt: 10, attempts: 1 }),
     ])
+  })
+
+  it('clamps corrupt attempt counts so a bad record cannot bypass the retry bound', () => {
+    const storage = memoryStorage()
+    storage.setItem('dsh-side-tasks:pending-discards:v1', JSON.stringify([
+      { ...request, attempts: -3, createdAt: 1, updatedAt: 1 },
+      { ...request, childSessionId: 'second', attempts: 2.5, createdAt: 1, updatedAt: 1 },
+      { ...request, childSessionId: 'third', attempts: Number.POSITIVE_INFINITY, createdAt: 1, updatedAt: 1 },
+    ]))
+    expect(readPendingDiscards(storage).map(row => row.attempts)).toEqual([0, 0, 0])
+  })
+
+  it('keeps markers another client enqueued between its own successful writes', () => {
+    const storage = memoryStorage()
+    const queue = createDiscardQueue({ storage, discard: vi.fn() as never, shouldSkip: () => true })
+    try {
+      queue.enqueue(request)
+      const other = { ...request, childSessionId: 'other' as never }
+      enqueuePendingDiscard(storage, other)
+      queue.enqueue({ ...request, childSessionId: 'third' as never })
+      expect(readPendingDiscards(storage).map(row => row.childSessionId)).toEqual(['child', 'other', 'third'])
+    } finally {
+      queue.stop()
+    }
+  })
+
+  it('revalidates a forced close queued behind a stalled request and rechecks it with a bounded schedule', async () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
+    const stalled = Promise.withResolvers<never>()
+    const second = { ...request, childSessionId: 'second' as never }
+    let reopened = true
+    const discard = vi.fn((input: typeof request) =>
+      input.childSessionId === request.childSessionId
+        ? stalled.promise
+        : Promise.resolve({ ok: true, value: { discarded: true } } as never))
+    const queue = createDiscardQueue({
+      storage,
+      discard: discard as never,
+      shouldSkip: input => input.childSessionId === second.childSessionId && reopened,
+      canForce: input => !(input.childSessionId === second.childSessionId && reopened),
+    })
+    try {
+      queue.enqueue(request, true)
+      await vi.advanceTimersByTimeAsync(0)
+      queue.enqueue(second, true)
+      stalled.resolve({ ok: true, value: { discarded: true } } as never)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(discard).toHaveBeenCalledTimes(1)
+      // Rechecks stay bounded while the child remains retained elsewhere.
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(discard).toHaveBeenCalledTimes(1)
+      expect(readPendingDiscards(storage).map(row => row.childSessionId)).toEqual(['second'])
+
+      reopened = false
+      queue.reset()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(discard).toHaveBeenCalledTimes(2)
+      expect(readPendingDiscards(storage)).toEqual([])
+    } finally {
+      await queue.dispose()
+      vi.useRealTimers()
+    }
   })
 
   it('auto-retries a transient close in the same client lifetime', async () => {

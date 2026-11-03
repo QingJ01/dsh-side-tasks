@@ -72,7 +72,7 @@ export class SideChatSettings {
 
   private warnContextFallback(agent: Agent): void {
     this.ctx.logger.warn(
-      `side-tasks: child "${agent.id}": source context refresh failed; using saved context. Restart or reopen the side chat to retry.`,
+      `side-tasks: child "${agent.id}": source context refresh failed; using saved context. Restart Harness to retry the refresh.`,
     )
   }
 
@@ -92,7 +92,8 @@ export class SideChatSettings {
   /**
    * Attach child-owned settings and inherited background at creation/resume.
    * Serial creation dispatch waits for this, so the first request already sees
-   * the inherited background; source failures fail this side-chat admission.
+   * the inherited background; source acquisition failures use a validated
+   * saved context record when available and otherwise fail admission.
    */
   private attach(agent: Agent): Promise<undefined> | undefined {
     if (!this.active || !this.owned(agent)) return undefined
@@ -108,6 +109,7 @@ export class SideChatSettings {
     )
     const controller = new AbortController()
     const promise = Promise.resolve().then(async () => {
+      if (!this.active || controller.signal.aborted) return undefined
       let contextState: { text: string; dispose?: () => void } | undefined
       if (record !== undefined) {
         contextState = {
@@ -119,12 +121,12 @@ export class SideChatSettings {
       let text = record?.text
       let sourceReadFailed = false
       if (!this.ctx.workspaceRegistry.archivedSessionIds.includes(descriptor.sourceSessionId)) {
+        let source: Awaited<ReturnType<typeof this.ctx.sessionQuery.observeSession>> | undefined
         try {
-          using source = await this.ctx.sessionQuery.observeSession(descriptor.sourceSessionId, {
+          source = await this.ctx.sessionQuery.observeSession(descriptor.sourceSessionId, {
             projectionMode: 'all',
             signal: controller.signal,
           })
-          text = inheritedContextText(source.events) ?? ''
         } catch (error: unknown) {
           if (controller.signal.aborted) throw error
           if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
@@ -134,6 +136,14 @@ export class SideChatSettings {
             this.warnContextFallback(agent)
           } else {
             throw error
+          }
+        }
+        if (source !== undefined) {
+          try {
+            if (!this.active || controller.signal.aborted) return undefined
+            text = inheritedContextText(source.events) ?? ''
+          } finally {
+            source[Symbol.dispose]()
           }
         }
         if (sourceReadFailed && record === undefined) text = undefined
