@@ -1,4 +1,5 @@
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { createPortal } from 'react-dom'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import { NS } from './locales.ts'
@@ -17,7 +18,7 @@ export function DiscardNotice({ usePendingDiscards, retryDiscards, t }:
   PropsRuntime<'shell.overlay'> & PropsLocale<typeof NS> & InjectFace<DiscardNoticeFace>) {
   const state = usePendingDiscards((value: DiscardNoticeState) => value)
   if (state.pending === 0) return null
-  return <aside role="alert" style={{
+  return createPortal(<aside role="alert" style={{
     boxSizing: 'border-box',
     position: 'fixed', bottom: 20, right: 20, maxWidth: 'min(420px, calc(100vw - 40px))',
     padding: 16, borderRadius: 'var(--dsw-radius-lg)', background: 'var(--dsw-alias-toast-bg)',
@@ -28,5 +29,5 @@ export function DiscardNotice({ usePendingDiscards, retryDiscards, t }:
     <Button variant="primary" size="sm" disabled={state.busy} onClick={retryDiscards}>
       {t(state.busy ? 'discard.retrying' : 'retry')}
     </Button>
-  </aside>
+  </aside>, document.body)
 }

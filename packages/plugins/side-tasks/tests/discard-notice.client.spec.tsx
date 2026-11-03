@@ -20,17 +20,20 @@ describe('pending discard notice', () => {
     } as Parameters<typeof DiscardNotice>[0]
     try {
       act(() => { root.render(React.createElement(DiscardNotice, props)) })
-      expect(container.querySelector('[role="alert"]')?.textContent).toContain('2 pending')
-      const button = container.querySelector('button')
+      const notice = document.body.querySelector('[role="alert"]')
+      expect(notice?.parentElement).toBe(document.body)
+      expect(notice?.textContent).toContain('2 pending')
+      const button = notice?.querySelector('button')
       expect(button?.disabled).toBe(false)
       act(() => { button?.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
       expect(retryDiscards).toHaveBeenCalledOnce()
 
       state.busy = true
       act(() => { root.render(React.createElement(DiscardNotice, props)) })
-      expect(container.querySelector('button')?.disabled).toBe(true)
+      expect(document.body.querySelector('button')?.disabled).toBe(true)
     } finally {
       act(() => { root.unmount() })
+      expect(document.body.querySelector('[role="alert"]')).toBeNull()
       container.remove()
     }
   })
