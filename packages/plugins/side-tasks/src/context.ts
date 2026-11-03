@@ -1,5 +1,4 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Structurally typed Session events: inherited context reads only first-party payloads. */
 interface EventLike {
@@ -42,23 +41,23 @@ export function inheritedContextText(events: readonly EventLike[]): string | und
     if (event.type !== 'user/message' && event.type !== 'assistant/message') continue
     const data = (event.data ?? {}) as {
       readonly content?: unknown
+      readonly message?: { readonly content?: unknown }
       readonly source?: { readonly kind?: unknown }
     }
     // Only human input and the model's replies belong in inherited background.
     if (event.type === 'user/message' && data.source?.kind !== 'user') continue
-    const text = textOf(data.content).trim()
+    const text = textOf(event.type === 'assistant/message' ? data.message?.content : data.content).trim()
     if (text === '') continue
     messages.push(`${event.type === 'user/message' ? 'User' : 'Assistant'}:\n${text}`)
   }
   if (messages.length === 0) return undefined
-  let body = messages.slice(-MAX_MESSAGES).join('\n\n')
-  if (body.length > MAX_CHARS) body = body.slice(-MAX_CHARS)
-  return [
+  const body = messages.slice(-MAX_MESSAGES).join('\n\n')
+  const prefix = [
     'This side chat inherits the conversation it was opened from. Its completed messages follow',
     'as background. Continue the work from here; do not summarize them unless the user asks.',
     '',
-    body,
   ].join('\n')
+  return `${prefix}${body.slice(-(MAX_CHARS - prefix.length))}`
 }
 
 /** Register the background as per-agent runtime context (never a transcript event). */
@@ -73,27 +72,4 @@ export function registerInheritedContext(agentCtx: Context, text: string): () =>
     order: systemPrompt.getContextOrder('SUBAGENT_DELEGATION') + 1,
     text: () => text,
   })
-}
-
-/** Read a parent conversation through whichever live or durable source exists. */
-export async function parentEvents(
-  ctx: Context,
-  parentSessionId: SessionId,
-  signal: AbortSignal,
-): Promise<readonly EventLike[]> {
-  const live = ctx.agents.get(parentSessionId)
-  if (live !== undefined) return live.session.snapshotEvents() as readonly EventLike[]
-  const query = ctx.get('sessionQuery') as {
-    observeSession(id: SessionId, options: { projectionMode: 'none'; signal: AbortSignal }): Promise<{
-      events: readonly EventLike[]
-      [Symbol.dispose]?: () => void
-    }>
-  } | undefined
-  if (query === undefined) return []
-  const observed = await query.observeSession(parentSessionId, { projectionMode: 'none', signal })
-  try {
-    return observed.events
-  } finally {
-    observed[Symbol.dispose]?.()
-  }
 }

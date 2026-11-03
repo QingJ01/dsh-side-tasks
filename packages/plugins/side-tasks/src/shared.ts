@@ -1,5 +1,6 @@
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SideTaskAddress } from './types.ts'
+import type { SideTaskContextRecord, SideTaskDescriptor } from './types.ts'
 
 /** Durable label marker distinguishing user-created side tasks from model delegations. */
 export const SIDE_TASK_LABEL_PREFIX = 'Side task · '
@@ -46,15 +47,45 @@ export function isBlankSideTaskLabel(label: string | undefined): boolean {
  * parser no longer match the running Host.
  */
 export function isSideTaskDescriptor(
-  events: readonly { readonly type: string; readonly data?: unknown }[],
+  events: readonly SessionEvent[],
   inheritedEventCount: number,
-): boolean {
-  const descriptor = events.slice(inheritedEventCount).find(event => event.type === 'subagent/descriptor')
-  const data = descriptor?.data
-  return typeof data === 'object'
-    && data !== null
-    && (data as { mode?: unknown }).mode === 'continuable'
-    && (data as { provider?: unknown }).provider === 'side-task'
+): SideTaskDescriptor | undefined {
+  return latestDescriptor(events, inheritedEventCount)
+}
+
+export function sideTaskContext(
+  events: readonly SessionEvent[],
+  inheritedEventCount: number,
+  sourceSessionId?: SessionId,
+): SideTaskContextRecord | undefined {
+  return latestContext(events, inheritedEventCount, sourceSessionId)
+}
+
+function ownRecordData(event: SessionEvent, type: string): unknown {
+  return event.ignorable === true && event.type === type ? event.data : undefined
+}
+
+function latestDescriptor(events: readonly SessionEvent[], inheritedEventCount: number): SideTaskDescriptor | undefined {
+  for (let index = events.length - 1; index >= inheritedEventCount; index--) {
+    const data = ownRecordData(events[index]!, 'plugin:side-tasks/descriptor') as Partial<SideTaskDescriptor> | undefined
+    if (data?.version === 1 && typeof data.sourceSessionId === 'string'
+      && typeof data.childSessionId === 'string' && typeof data.label === 'string') return data as SideTaskDescriptor
+  }
+  return undefined
+}
+
+function latestContext(
+  events: readonly SessionEvent[],
+  inheritedEventCount: number,
+  sourceSessionId?: SessionId,
+): SideTaskContextRecord | undefined {
+  for (let index = events.length - 1; index >= inheritedEventCount; index--) {
+    const data = ownRecordData(events[index]!, 'plugin:side-tasks/context') as Partial<SideTaskContextRecord> | undefined
+    if (data?.version === 1 && typeof data.sourceSessionId === 'string' && typeof data.text === 'string'
+      && data.text.length <= 100_000
+      && (sourceSessionId === undefined || data.sourceSessionId === sourceSessionId)) return data as SideTaskContextRecord
+  }
+  return undefined
 }
 
 /** Encode an existing child as this plugin's right-sidebar chat resource. */
@@ -79,7 +110,9 @@ export function parseSideTaskChatAddress(value: string): SideTaskAddress | undef
   const parts = url.pathname.split('/').filter(Boolean)
   if (parts.length !== 2 || parts[0] !== 'session') return undefined
   const parentSessionId = url.searchParams.get('parent')
-  if (parentSessionId === null || parentSessionId === '' || url.searchParams.get('mode') !== 'continuable') return undefined
+  const mode = url.searchParams.get('mode')
+  if (parentSessionId === null || parentSessionId === ''
+    || (mode !== 'independent' && mode !== 'continuable')) return undefined
   const boundary = url.searchParams.get('contextThrough')
   const contextThrough = boundary === null ? undefined : Number(boundary)
   if (contextThrough !== undefined && (!Number.isSafeInteger(contextThrough) || contextThrough < -1)) return undefined
@@ -88,7 +121,7 @@ export function parseSideTaskChatAddress(value: string): SideTaskAddress | undef
       ...(contextThrough === undefined ? {} : { contextThrough }),
       parentSessionId: parentSessionId as SessionId,
       childSessionId: decodeURIComponent(parts[1] as string) as SessionId,
-      mode: 'continuable',
+      mode,
     }
   } catch {
     return undefined

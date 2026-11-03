@@ -62,6 +62,7 @@ describe('client creation and close lifecycle', () => {
   })
 
   it('opens children and discards the same identity on tab close without another create', async () => {
+    const registeredSlots: string[] = []
     let registration: { definition: { inject: (id: SessionId) => {
       openSideChat: () => void
     } } } | undefined
@@ -71,6 +72,8 @@ describe('client creation and close lifecycle', () => {
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
     const openTab = vi.fn()
     const focus = vi.fn()
+    let expanded = true
+    const toggleExpanded = vi.fn(() => { expanded = !expanded })
     const refreshProjections = vi.fn()
     const openTabs: { sessionId: SessionId; tabId: string; kind: string; contentId: string }[] = []
     const registerCloseHandler = vi.fn((_kind: string, handler: typeof closeHandler) => {
@@ -84,7 +87,7 @@ describe('client creation and close lifecycle', () => {
       inject: (_dependencies: string[], callback: (scope: unknown) => unknown) => callback(ctx),
       locale: { register: vi.fn(), bind: vi.fn(() => (key: string) => key) },
       slots: {
-        entries: () => [],
+        entries: () => [{ component: () => null, options: {}, inject: () => ({}) }],
         subscribe: () => () => {},
         inject: (seat: string, callback: () => unknown) => {
           const value = callback() as typeof registration
@@ -92,14 +95,19 @@ describe('client creation and close lifecycle', () => {
           return value
         },
         register: (definition: { name?: string; children?: Record<string, unknown> }) => {
+          if (definition.name !== undefined) registeredSlots.push(definition.name)
           if (definition.name === 'sidebar.right.pane.tab') bodyRegistration = definition
           return { definition }
         },
       },
       resources: { register: vi.fn(() => () => {}) },
+      uiWorkspace: { supportsSideChatSessions: true },
       sidebarRightTabs: { register: vi.fn(() => () => {}) },
       remote: { $mount: mountRemote, sideTasks: { create, discard } },
       sessions: {
+        retain: vi.fn(),
+        retainInfo: vi.fn(),
+        binding: vi.fn(),
         refreshProjections,
         list: {
           getSnapshot: vi.fn(() => ({
@@ -119,10 +127,12 @@ describe('client creation and close lifecycle', () => {
           })),
         },
       },
-      sidebarRight: { openTab, focus, registerCloseHandler, openTabs: { getSnapshot: () => openTabs } },
+      sidebarRight: { openTab, focus, isExpanded: () => expanded, toggleExpanded,
+        registerCloseHandler, openTabs: { getSnapshot: () => openTabs } },
     }
     await apply(ctx as never)
 
+    expect(registeredSlots.filter(name => name.startsWith('conversation.input.'))).toEqual([])
     expect(mountRemote).toHaveBeenCalledOnce()
     expect(registration).toBeDefined()
     expect(registerCloseHandler).toHaveBeenCalledWith(SIDE_CHAT_KIND, expect.any(Function))
@@ -140,7 +150,7 @@ describe('client creation and close lifecycle', () => {
       parentSessionId: 'parent' as SessionId,
       childSessionId: 'existing' as SessionId,
       mode: 'continuable',
-    }))).toBe('Existing investigation')
+    }))).toBe('empty.title')
     const actions = registration!.definition.inject('parent' as SessionId)
     actions.openSideChat()
     expect(openTab).toHaveBeenCalledWith(SIDE_CHAT_KIND, { preferNewPane: false })
@@ -151,6 +161,15 @@ describe('client creation and close lifecycle', () => {
     openTabs.push({ sessionId: 'parent' as SessionId, tabId: 'tab-1', kind: SIDE_CHAT_KIND, contentId: SIDE_CHAT_PAGE_ADDRESS })
     actions.openSideChat()
     expect(focus).toHaveBeenCalledWith('tab-1')
+    expect(openTab).toHaveBeenCalledOnce()
+    expect(toggleExpanded).not.toHaveBeenCalled()
+    expanded = false
+    actions.openSideChat()
+    expect(expanded).toBe(true)
+    expect(toggleExpanded).toHaveBeenCalledOnce()
+    actions.openSideChat()
+    expect(expanded).toBe(true)
+    expect(toggleExpanded).toHaveBeenCalledOnce()
     expect(openTab).toHaveBeenCalledOnce()
     openTabs.length = 0
 

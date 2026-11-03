@@ -25,7 +25,10 @@ export function SideTaskAction({
   openSideChat,
   t,
 }: SideTaskActionProps) {
-  const isChild = useSessions((state: SessionListState) => state.byId[sessionId]?.origin === 'subagent')
+  const isChild = useSessions((state: SessionListState) => {
+    const origin = state.byId[sessionId]?.origin as string | undefined
+    return origin === 'subagent' || origin === 'sidechat'
+  })
   const archivedSessionIds = useWorkspaces(
     (state: { archivedSessionIds: readonly SessionId[] }) => state.archivedSessionIds,
   )

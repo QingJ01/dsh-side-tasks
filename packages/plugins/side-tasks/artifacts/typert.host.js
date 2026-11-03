@@ -121,7 +121,7 @@ const strictRequest = () => z.strictObject({ prompt: z.string().readonly() })
 const address = () => z.object({
   parentSessionId: z.string().readonly(),
   childSessionId: z.string().readonly(),
-  mode: z.literal('continuable').readonly(),
+  mode: z.union([z.literal('independent'), z.literal('continuable')]).readonly(),
   contextThrough: z.number().int().min(-1).optional().readonly(),
 })
 const discardRequest = () => z.object({
@@ -144,35 +144,27 @@ const configureRequest = (strict = false) => {
 }
 const configureResult = () => z.object({ configured: z.literal(true).readonly() })
 const discardResult = () => z.object({ discarded: z.literal(true).readonly() })
+const capabilitiesResult = () => z.object({ supportsSideChatSessions: z.boolean().readonly() })
 
 const $remote = createTypertRemoteInfo({
   package: 'dsh-side-tasks',
   methods: {
     'sideTasks/create': {
       service: 'sideTasks',
-      description: 'Create a context-inheriting side task without creating an ordinary session.',
+      description: 'Create an independent root side chat from read-only source context.',
       invocation: { kind: 'direct' },
       cancellation: { parameter: 'signal' },
-      scope: { context: 'agent', wire: 'agentId' },
       parameters: [
         {
-          name: 'agent',
-          wire: 'agentId',
-          description: 'exact live parent agent.',
-          source: 'lookup',
-          lookup: 'agent',
+          name: 'sourceSessionId',
+          source: 'json',
           codec: {
             mode: 'strict',
             typeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
             create: sessionId,
             jsonSchema: { type: 'string' },
           },
-          strictCodec: {
-            mode: 'strict',
-            typeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
-            create: sessionId,
-            jsonSchema: { type: 'string' },
-          },
+          strictCodec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-session/types#SessionId', create: sessionId, jsonSchema: { type: 'string' } },
         },
         {
           name: 'request',
@@ -212,14 +204,14 @@ const $remote = createTypertRemoteInfo({
           properties: {
             parentSessionId: { type: 'string' },
             childSessionId: { type: 'string' },
-            mode: { type: 'string', enum: ['continuable'] },
+            mode: { type: 'string', enum: ['independent', 'continuable'] },
             contextThrough: { type: 'integer', minimum: -1 },
           },
           required: ['parentSessionId', 'childSessionId', 'mode'],
           additionalProperties: true,
         },
       },
-      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 46, column: 3 },
+      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 61, column: 3 },
     },
     'sideTasks/discard': {
       service: 'sideTasks',
@@ -273,7 +265,7 @@ const $remote = createTypertRemoteInfo({
           additionalProperties: true,
         },
       },
-      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 62, column: 3 },
+      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 138, column: 3 },
     },
     'sideTasks/configure': {
       service: 'sideTasks',
@@ -287,7 +279,23 @@ const $remote = createTypertRemoteInfo({
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-side-tasks#ConfigureSideTaskResult', create: configureResult,
         jsonSchema: { type: 'object', properties: { configured: { const: true } }, required: ['configured'] } },
-      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 80, column: 3 },
+      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 133, column: 3 },
+    },
+    'sideTasks/capabilities': {
+      service: 'sideTasks',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: {
+        mode: 'strict',
+        typeSymbol: 'dsh-side-tasks#SideTaskCapabilities',
+        create: capabilitiesResult,
+        jsonSchema: {
+          type: 'object',
+          properties: { supportsSideChatSessions: { type: 'boolean' } },
+          required: ['supportsSideChatSessions'],
+        },
+      },
+      sourceLocation: { file: 'packages/plugins/side-tasks/src/index.ts', line: 128, column: 3 },
     },
 
   },
@@ -308,18 +316,23 @@ export const TYPERT = {
       exportName: 'SideTaskService',
       members: [{
         kind: 'method', name: 'configure',
-        signature: "@Remote('configure') configure(request: ConfigureSideTaskRequest, signal: AbortSignal): Promise<ConfigureSideTaskResult>",
+        signature: "@Remote({ name: 'configure', resources: { session: ... } }) configure(request: ConfigureSideTaskRequest, signal: AbortSignal): Promise<ConfigureSideTaskResult>",
         summary: 'Change one owned child model or permission preset.',
       }, {
         kind: 'method',
         name: 'create',
-        signature: "@Remote('create') async create(agent: Agent, request: CreateSideTaskRequest, signal: AbortSignal): Promise<SideTaskAddress>",
+        signature: "@Remote({ name: 'create', resources: { session: ... } }) async create(sourceSessionId: SessionId, request: CreateSideTaskRequest, signal: AbortSignal): Promise<SideTaskAddress>",
         summary: 'Create one child without creating or selecting an ordinary session.',
         jsDoc: '/** Create one child without creating or selecting an ordinary session. */',
       }, {
         kind: 'method',
+        name: 'capabilities',
+        signature: "@Remote('capabilities') capabilities(): SideTaskCapabilities",
+        summary: 'Report Host support for independent side-chat Sessions.',
+      }, {
+        kind: 'method',
         name: 'discard',
-        signature: "@Remote('discard') async discard(request: DiscardSideTaskRequest, signal: AbortSignal): Promise<DiscardSideTaskResult>",
+        signature: "@Remote({ name: 'discard', resources: { session: ... } }) discard(request: DiscardSideTaskRequest, signal: AbortSignal): Promise<DiscardSideTaskResult>",
         summary: 'Stop and archive one plugin-owned child when its tab closes.',
         jsDoc: '/** Stop and archive one plugin-owned child when its tab closes. */',
       }],

@@ -3,7 +3,7 @@ import { StrictMode } from 'react'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { SideChatEmptyState, SideChatStartPage, hasOwnSideChatTurn } from '../src/client/sidebar-chat.tsx'
+import { EmptyChatView, SideChatEmptyState, SideChatStartPage, hasOwnSideChatTurn } from '../src/client/sidebar-chat.tsx'
 import { SideChatPreparations } from '../src/client/preparation.ts'
 import { en, type SideTaskKey } from '../src/client/locales.ts'
 
@@ -12,6 +12,13 @@ const address = { parentSessionId: 'parent' as SessionId, childSessionId: 'child
 afterEach(cleanup)
 
 describe('native side chat preparation', () => {
+  it('keeps the native draft-persistence owner mounted while hiding an empty transcript', () => {
+    const renderSlot = vi.fn(() => <div data-native-session />)
+    const { container } = render(<EmptyChatView {...{ renderSlot } as never} />)
+    expect(renderSlot).toHaveBeenCalledWith('conversation.session', { view: 'chat' })
+    expect(container.querySelector('[hidden] [data-native-session]')).not.toBeNull()
+  })
+
   it('keeps inherited turns behind the empty notice until the child starts its own turn', () => {
     const window = { entries: [{ type: 'event', event: { type: 'turn/start', seq: 3 } }], hasMore: false } as never
     expect(hasOwnSideChatTurn(window, 10)).toBe(false)
@@ -21,6 +28,23 @@ describe('native side chat preparation', () => {
   it('explains temporary chat closure', () => {
     render(<SideChatEmptyState t={t} />)
     expect(screen.getByText(en['empty.description'])).toBeTruthy()
+  })
+
+  it.each(['user/message', 'assistant/message', 'assistant/live-chunk'])(
+    'recognizes a paginated child %s without its turn/start', (type) => {
+      const window = { entries: [{ type: type === 'assistant/live-chunk' ? 'transient' : 'event',
+        event: { type, seq: 501, data: { source: { kind: 'user' } } } }], hasMore: true } as never
+      expect(hasOwnSideChatTurn(window, -1)).toBe(true)
+      expect(hasOwnSideChatTurn(window, 501)).toBe(false)
+    },
+  )
+
+  it('does not mistake metadata or injected context for a first child exchange', () => {
+    const window = { entries: [
+      { type: 'event', event: { type: 'subagent/descriptor', seq: 0 } },
+      { type: 'event', event: { type: 'user/message', seq: 1, data: { source: { kind: 'context' } } } },
+    ], hasMore: false } as never
+    expect(hasOwnSideChatTurn(window, -1)).toBe(false)
   })
 
   it('blocks child or archived parents before creating anything', () => {
