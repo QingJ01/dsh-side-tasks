@@ -16,7 +16,13 @@ const sourceId = 'source' as SessionId
 const childId = 'child' as SessionId
 const selected = { provider: 'test', model: 'new', reasoningEffort: ReasoningEffortId('high') }
 
-function fixture(options: { live?: boolean; sourceArchived?: boolean; sourceFailure?: Error } = {}) {
+function fixture(options: {
+  live?: boolean
+  sourceArchived?: boolean
+  sourceFailure?: Error
+  existing?: boolean
+  contextRecord?: string
+} = {}) {
   const descriptor = {
     type: 'plugin:side-tasks/descriptor', ignorable: true,
     data: { version: 1, sourceSessionId: sourceId, childSessionId: childId, label: 'side chat' },
@@ -24,6 +30,12 @@ function fixture(options: { live?: boolean; sourceArchived?: boolean; sourceFail
   const events: object[] = [descriptor, {
     type: 'model/selection', data: { provider: 'test', model: 'old' },
   }]
+  if (options.contextRecord !== undefined) {
+    events.push({
+      type: 'plugin:side-tasks/context', ignorable: true,
+      data: { version: 1, sourceSessionId: sourceId, text: options.contextRecord },
+    })
+  }
   const append = vi.fn((type: string, data: unknown) => { events.push({ type, ignorable: true, data }) })
   const context = vi.fn(() => vi.fn())
   const child = {
@@ -64,11 +76,16 @@ function fixture(options: { live?: boolean; sourceArchived?: boolean; sourceFail
     }
     return observation
   })
-  const unload: (() => void)[] = []
+  const unload: Array<() => void | Promise<void>> = []
   const dispose = vi.fn(async () => {})
   const agentPresets = { mount: vi.fn(async () => ({ id: 'minimal' })) }
+  const handlers = new Map<string, (...args: never[]) => unknown>()
+  const on = vi.fn((name: string, handler: (...args: never[]) => unknown) => {
+    handlers.set(name, handler)
+    return vi.fn()
+  })
   const agents = {
-    list: () => [],
+    list: () => options.existing === true ? [child] : [],
     get: vi.fn((id: SessionId) => id === childId && options.live !== false ? child : undefined),
     resume: vi.fn(async ({ setup }: { setup?: (ctx: object, agent: typeof child) => Promise<void> }) => {
       await setup?.(child.ctx, child)
@@ -76,7 +93,7 @@ function fixture(options: { live?: boolean; sourceArchived?: boolean; sourceFail
     }),
   }
   const ctx = {
-    on: vi.fn(),
+    on,
     effect: (effect: () => () => void) => { unload.push(effect()) },
     agents,
     workspaceRegistry: { archivedSessionIds: options.sourceArchived ? [sourceId] : [] },
@@ -87,10 +104,11 @@ function fixture(options: { live?: boolean; sourceArchived?: boolean; sourceFail
       resolveCallConfig: vi.fn(async (value: unknown) => value),
     } : name === 'commands' ? { execute: vi.fn(async () => ({ result: { kind: 'success' } })) }
       : name === 'permissionPresets' ? { resolve: vi.fn() }
-        : name === 'agentPresets' ? agentPresets : undefined,
+      : name === 'agentPresets' ? agentPresets : undefined,
+    logger: { warn: vi.fn() },
   }
   const settings = new SideChatSettings(ctx as never)
-  return { settings, ctx, agents, child, events, append, context, observation, unload, dispose, agentPresets }
+  return { settings, ctx, agents, child, events, append, context, observation, unload, dispose, agentPresets, handlers }
 }
 
 const modelRequest = {
@@ -137,7 +155,6 @@ describe('side-chat settings and cold context', () => {
 
   it('refreshes bounded source context on attach and persists the exact model-visible text first', async () => {
     const { ctx, child, append, context, observation } = fixture()
-    new SideChatSettings(ctx as never)
     const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
       (event: { agent: typeof child }) => Promise<void>
     await created({ agent: child })
@@ -158,15 +175,24 @@ describe('side-chat settings and cold context', () => {
     })
     let finish!: (value: typeof observation) => void
     ctx.sessionQuery.observeSession = vi.fn(() => new Promise(resolve => { finish = resolve }) as never)
-    new SideChatSettings(ctx as never)
     const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
       (event: { agent: typeof child }) => Promise<void>
     const pending = created({ agent: child })
     await Promise.resolve()
     expect(context).toHaveBeenCalledOnce()
     expect(context.mock.calls[0]![0].text()).toBe('durable child context')
+    const preStep = ctx.on.mock.calls.find(([name]) => name === 'agent/pre-step')![1] as
+      (payload: { agent: typeof child; messages: []; turn: number; step: number; signal: AbortSignal },
+        next: () => Promise<{ kind: 'enter'; messages: [] }>) => Promise<unknown>
+    const next = vi.fn(async () => ({ kind: 'enter' as const, messages: [] }))
+    const waitingStep = preStep({
+      agent: child, messages: [], turn: 0, step: 0, signal: new AbortController().signal,
+    }, next)
+    expect(next).not.toHaveBeenCalled()
     finish(observation)
     await pending
+    await waitingStep
+    expect(next).toHaveBeenCalledOnce()
     expect(context).toHaveBeenCalledTimes(2)
     expect(context.mock.results[0]!.value).toHaveBeenCalledOnce()
   })
@@ -177,7 +203,6 @@ describe('side-chat settings and cold context', () => {
       type: 'plugin:side-tasks/context', ignorable: true,
       data: { version: 1, sourceSessionId: sourceId, text: 'recorded context' },
     })
-    new SideChatSettings(ctx as never)
     const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
       (event: { agent: typeof child }) => Promise<void>
     await created({ agent: child })
@@ -187,11 +212,125 @@ describe('side-chat settings and cold context', () => {
 
   it('surfaces genuine source read failures instead of registering stale context as fresh', async () => {
     const { ctx, child, context } = fixture({ sourceFailure: new Error('source store unavailable') })
-    new SideChatSettings(ctx as never)
     const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
       (event: { agent: typeof child }) => Promise<void>
     await expect(created({ agent: child })).rejects.toThrow('source store unavailable')
     expect(context).not.toHaveBeenCalled()
+  })
+
+  it('handles an existing child attach failure and retries it at pre-step admission', async () => {
+    const onUnhandled = vi.fn()
+    process.on('unhandledRejection', onUnhandled)
+    const { ctx, child, handlers } = fixture({
+      existing: true,
+      sourceFailure: new Error('source payload must not be logged'),
+    })
+    try {
+      await vi.waitFor(() => expect(ctx.logger.warn).toHaveBeenCalledOnce())
+      const next = vi.fn(async () => ({ kind: 'enter' as const, messages: [] }))
+      await expect(handlers.get('agent/pre-step')!({
+        agent: child, messages: [], turn: 0, step: 0, signal: new AbortController().signal,
+      }, next)).rejects.toThrow('source payload must not be logged')
+      expect(next).not.toHaveBeenCalled()
+      expect(ctx.sessionQuery.observeSession).toHaveBeenCalledTimes(2)
+      await new Promise(resolve => setImmediate(resolve))
+      expect(onUnhandled).not.toHaveBeenCalled()
+      expect(ctx.logger.warn).toHaveBeenCalledTimes(2)
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
+  })
+
+  it('contains an existing child refresh failure when saved context is available', async () => {
+    const onUnhandled = vi.fn()
+    process.on('unhandledRejection', onUnhandled)
+    const { ctx, context } = fixture({
+      existing: true,
+      contextRecord: 'saved child context',
+      sourceFailure: new Error('sensitive source detail'),
+    })
+    try {
+      await vi.waitFor(() => expect(ctx.logger.warn).toHaveBeenCalledOnce())
+      expect(context).toHaveBeenCalledOnce()
+      expect(ctx.logger.warn.mock.calls[0]![0]).toContain('using saved context')
+      expect(ctx.logger.warn.mock.calls[0]![0]).not.toContain('saved child context')
+      expect(ctx.logger.warn.mock.calls[0]![0]).toContain('Restart Harness to retry the refresh.')
+      expect(ctx.logger.warn.mock.calls[0]![0]).not.toContain('sensitive source detail')
+      await new Promise(resolve => setImmediate(resolve))
+      expect(onUnhandled).not.toHaveBeenCalled()
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
+  })
+
+  it('does not register saved context when an existing child is disposed before attach starts', async () => {
+    const { ctx, child, context, append, unload } = fixture({
+      existing: true,
+      contextRecord: 'saved child context',
+    })
+    const disposed = ctx.on.mock.calls.find(([name]) => name === 'agent/disposed')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    const release = disposed({ agent: child })
+    const teardown = unload[0]!()
+    await Promise.all([release, teardown])
+    expect(context).not.toHaveBeenCalled()
+    expect(ctx.sessionQuery.observeSession).not.toHaveBeenCalled()
+    expect(append).not.toHaveBeenCalled()
+  })
+
+  it('uses saved empty context after a refresh failure and warns without persisting a fresh record', async () => {
+    const { ctx, child, events, append } = fixture({ sourceFailure: new Error('temporary source failure') })
+    events.push({
+      type: 'plugin:side-tasks/context', ignorable: true,
+      data: { version: 1, sourceSessionId: sourceId, text: '' },
+    })
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await expect(created({ agent: child })).resolves.toBeUndefined()
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('using saved context. Restart Harness to retry the refresh.'),
+    )
+    expect(append).not.toHaveBeenCalled()
+  })
+
+  it('disposes an acquired source when context transformation fails without reporting a read fallback', async () => {
+    const { ctx, child, context, observation } = fixture()
+    const broken = { ...observation }
+    Object.defineProperty(broken, 'events', {
+      get() { throw new Error('source transformation failed') },
+    })
+    ctx.sessionQuery.observeSession = vi.fn(async () => broken as never)
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await expect(created({ agent: child })).rejects.toThrow('source transformation failed')
+    expect(observation[Symbol.dispose]).toHaveBeenCalledOnce()
+    expect(context).not.toHaveBeenCalled()
+    expect(ctx.logger.warn).not.toHaveBeenCalled()
+  })
+
+  it('does not classify an observation disposal failure as a source read outage', async () => {
+    const { ctx, child, context, observation } = fixture()
+    observation[Symbol.dispose].mockImplementation(() => { throw new Error('observation disposal failed') })
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await expect(created({ agent: child })).rejects.toThrow('observation disposal failed')
+    expect(observation[Symbol.dispose]).toHaveBeenCalledOnce()
+    expect(context).not.toHaveBeenCalled()
+    expect(ctx.logger.warn).not.toHaveBeenCalled()
+  })
+
+  it('does not turn child context persistence failure into a successful fallback', async () => {
+    const { ctx, child, append } = fixture()
+    append.mockImplementationOnce(() => { throw new Error('child append failed') })
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    await expect(created({ agent: child })).rejects.toThrow('child append failed')
+    const preStep = ctx.on.mock.calls.find(([name]) => name === 'agent/pre-step')![1] as
+      (payload: { agent: typeof child; messages: []; turn: number; step: number; signal: AbortSignal },
+        next: () => Promise<{ kind: 'enter'; messages: [] }>) => Promise<unknown>
+    await expect(preStep({
+      agent: child, messages: [], turn: 0, step: 0, signal: new AbortController().signal,
+    }, async () => ({ kind: 'enter', messages: [] }))).resolves.toEqual({ kind: 'enter', messages: [] })
   })
 
   it('cancels an in-flight source read on unload and ignores its late result', async () => {
@@ -203,7 +342,6 @@ describe('side-chat settings and cold context', () => {
       [Symbol.dispose](): void
     }) => void
     ctx.sessionQuery.observeSession = vi.fn(() => new Promise(resolve => { finish = resolve }) as never)
-    const settings = new SideChatSettings(ctx as never)
     const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
       (event: { agent: typeof child }) => Promise<void>
     const pending = created({ agent: child })
@@ -212,5 +350,36 @@ describe('side-chat settings and cold context', () => {
     finish({ header: child.session.header, events: [], inheritedEventCount: 0, [Symbol.dispose]: vi.fn() })
     await pending
     expect(context).not.toHaveBeenCalled()
+  })
+
+  it('waits for a released source read before finishing plugin teardown', async () => {
+    const { ctx, child, observation, unload, append } = fixture()
+    let finish!: (value: typeof observation) => void
+    ctx.sessionQuery.observeSession = vi.fn(() => new Promise(resolve => { finish = resolve }) as never)
+    const created = ctx.on.mock.calls.find(([name]) => name === 'agent/created')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    const pending = created({ agent: child })
+    await Promise.resolve()
+    const disposed = ctx.on.mock.calls.find(([name]) => name === 'agent/disposed')![1] as
+      (event: { agent: typeof child }) => Promise<void>
+    const release = disposed({ agent: child })
+    expect(ctx.sessionQuery.observeSession.mock.calls[0]![1]?.signal.aborted).toBe(true)
+    let released = false
+    void release.then(() => { released = true })
+    await Promise.resolve()
+    expect(released).toBe(false)
+    const teardown = unload[0]!
+    let settled = false
+    void Promise.resolve(teardown()).then(() => { settled = true })
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    finish(observation)
+    await pending
+    await release
+    await teardown()
+    expect(settled).toBe(true)
+    expect(released).toBe(true)
+    expect(append).not.toHaveBeenCalled()
+    expect(ctx.sessionQuery.observeSession).toHaveBeenCalledOnce()
   })
 })

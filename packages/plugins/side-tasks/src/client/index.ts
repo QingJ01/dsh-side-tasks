@@ -20,10 +20,10 @@ import type {
 import { parseSideTaskChatAddress, SIDE_CHAT_KIND, SIDE_CHAT_PAGE_ADDRESS } from '../shared.ts'
 import {
   browserDiscardStorage,
-  enqueuePendingDiscard,
-  flushPendingDiscards,
-  removePendingDiscard,
+  createDiscardQueue,
+  type DiscardQueue,
 } from './discard-queue.ts'
+import { DiscardNotice } from './DiscardNotice.tsx'
 import { SideTaskAction } from './SideTaskAction.tsx'
 import { registerSideChat } from './sidebar-chat.tsx'
 import { SideChatPreparations } from './preparation.ts'
@@ -75,6 +75,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     return async () => {}
   }
   let ui: ReturnType<typeof ctx.inject> | undefined
+  const queues = new Set<DiscardQueue>()
   try {
     ui = ctx.inject(['resources', 'sidebarRightTabs', 'remote.sideTasks'], (scope) => {
     const remote = (scope.remote as SideTaskRemote).sideTasks
@@ -99,25 +100,48 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       return result
     }
 
-    const discard = (address: SideTaskAddress) => {
-      const request = { parentSessionId: address.parentSessionId, childSessionId: address.childSessionId }
-      enqueuePendingDiscard(storage, request)
-      void remote.discard(request).then(result => {
-        if (result.ok) removePendingDiscard(storage, request)
-        else console.error(`side-tasks: discard failed: ${result.error.message}`)
-      }).catch((error: unknown) => {
-        console.error(`side-tasks: discard failed: ${String(error)}`)
+    const shouldSkipDiscard = (request: DiscardSideTaskRequest): boolean =>
+      sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0
+      || scope.sidebarRight.openTabs.getSnapshot().some((tab: { contentId: string }) =>
+        parseSideTaskChatAddress(tab.contentId)?.childSessionId === request.childSessionId)
+    const discardQueue = createDiscardQueue({
+      storage,
+      discard: request => remote.discard(request),
+      shouldSkip: shouldSkipDiscard,
+      // Only the closing tab's own deferred release may be bypassed; a child
+      // reopened while this request waited keeps its reference protection.
+      canForce: request => !scope.sidebarRight.openTabs.getSnapshot().some((tab: { contentId: string }) =>
+        parseSideTaskChatAddress(tab.contentId)?.childSessionId === request.childSessionId)
+        && sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount <= 1,
+    })
+    queues.add(discardQueue)
+    scope.effect(() => async () => {
+      discardQueue.stop()
+      try {
+        await discardQueue.dispose()
+      } finally {
+        queues.delete(discardQueue)
+      }
+    }, 'side-tasks: discard queue')
+    scope.effect(() => ctx.on('connection/reset', () => { discardQueue.reset() }), 'side-tasks: discard reconnect')
+    scope.slots.inject('shell.overlay', () => scope.slots.register({
+      name: 'shell.overlay',
+      id: 'side-tasks.discard-notice',
+      locale: NS,
+      inject: () => ({
+        hooks: discardQueue.hooks,
+        retryDiscards: () => { discardQueue.retry() },
+      }),
+    }, DiscardNotice))
+    const preparations = new SideChatPreparations((parent, prompt) => createSideTask(parent, prompt), address => {
+      discardQueue.enqueue({
+        parentSessionId: address.parentSessionId,
+        childSessionId: address.childSessionId,
       })
-    }
-    const preparations = new SideChatPreparations(createSideTask, discard)
+    })
     scope.effect(() => () => { preparations.dispose() }, 'side-tasks: pending creations')
     const addresses = new Map<SessionId, SideTaskAddress>()
     registerSideChat(scope, sessions, t, preparations, addresses)
-    void flushPendingDiscards(storage, request => remote.discard(request), {
-      shouldSkip: request => sessions.retainInfo(request.childSessionId).getSnapshot().referenceCount > 0
-        || scope.sidebarRight.openTabs.getSnapshot().some((tab: { contentId: string }) =>
-          parseSideTaskChatAddress(tab.contentId)?.childSessionId === request.childSessionId),
-    })
 
     scope.effect(() => scope.sidebarRight.registerCloseHandler(SIDE_CHAT_KIND, (parentSessionId, tab) => {
       if (tab.contentId === SIDE_CHAT_PAGE_ADDRESS) {
@@ -131,7 +155,13 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       }
       const otherOccurrences = scope.sidebarRight.openTabs.getSnapshot().some((other: { tabId: string; contentId: string }) =>
         other.tabId !== tab.id && parseSideTaskChatAddress(other.contentId)?.childSessionId === address.childSessionId)
-      if (!otherOccurrences) discard(address)
+      if (!otherOccurrences) {
+        const referenceCount = sessions.retainInfo(address.childSessionId).getSnapshot().referenceCount
+        discardQueue.enqueue({
+          parentSessionId: address.parentSessionId,
+          childSessionId: address.childSessionId,
+        }, referenceCount <= 1)
+      }
     }), 'side-tasks: close lifecycle')
 
     scope.slots.inject('conversation.session.header.utilities', () => scope.slots.register({
@@ -159,13 +189,29 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     })
     await ui
   } catch (error: unknown) {
+    const pending = [...queues]
+    for (const queue of pending) queue.stop()
     await ui?.dispose().catch(() => undefined)
+    await Promise.allSettled(pending.map(queue => queue.dispose()))
     await unmountRemote().catch(() => undefined)
     console.error(`side-tasks: UI registration failed: ${String(error)}`)
     return async () => {}
   }
   return async () => {
-    await ui.dispose()
+    // Admission stops before the UI releases its tabs, so no timer can issue
+    // another request while its sessions are being released.
+    const pending = [...queues]
+    for (const queue of pending) queue.stop()
+    const failures: unknown[] = []
+    try {
+      await ui.dispose()
+    } catch (error: unknown) {
+      failures.push(error)
+    }
+    for (const result of await Promise.allSettled(pending.map(queue => queue.dispose()))) {
+      if (result.status === 'rejected') failures.push(result.reason)
+    }
     await unmountRemote()
+    if (failures.length > 0) throw failures[0]
   }
 }

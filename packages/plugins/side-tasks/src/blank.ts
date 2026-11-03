@@ -68,12 +68,10 @@ export async function createBlankSideTask(
         child.session.append('approval/policy', { policy: source.permissions.approval })
       }
       appendPluginRecord(child.session, 'plugin:side-tasks/descriptor', descriptor)
-      if (contextText !== undefined) {
-        const record: SideTaskContextRecord = {
-          version: 1, sourceSessionId: source.id, text: contextText,
-        }
-        appendPluginRecord(child.session, 'plugin:side-tasks/context', record)
+      const record: SideTaskContextRecord = {
+        version: 1, sourceSessionId: source.id, text: contextText ?? '',
       }
+      appendPluginRecord(child.session, 'plugin:side-tasks/context', record)
     },
   })
   try {

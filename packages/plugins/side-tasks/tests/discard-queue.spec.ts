@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   browserDiscardStorage,
+  createDiscardQueue,
   enqueuePendingDiscard,
   flushPendingDiscards,
   readPendingDiscards,
@@ -79,19 +80,20 @@ describe('pending discard queue', () => {
     expect(readPendingDiscards(storage)).toEqual([expect.objectContaining(request)])
   })
 
-  it('drops terminal bad requests and exhausted retries', async () => {
+  it('retains terminal, exhausted, and old markers for explicit retry', async () => {
     const storage = memoryStorage()
     enqueuePendingDiscard(storage, request)
     await flushPendingDiscards(storage, async () => ({
       ok: false as const,
       error: { code: 'gateway/bad-request', message: 'no longer a child' },
     }) as never)
-    expect(readPendingDiscards(storage)).toEqual([])
+    expect(readPendingDiscards(storage)).toEqual([expect.objectContaining({ ...request, attempts: 1, terminal: true })])
 
+    removePendingDiscard(storage, request)
     enqueuePendingDiscard(storage, request)
     const transient = async () => ({ ok: false as const, error: { code: 'gateway/internal', message: 'offline' } })
     await flushPendingDiscards(storage, transient as never, { maxAttempts: 1 })
-    expect(readPendingDiscards(storage)).toEqual([])
+    expect(readPendingDiscards(storage)).toEqual([expect.objectContaining({ ...request, attempts: 1, terminal: false })])
   })
 
   it('keeps a marker while the child is still retained elsewhere', async () => {
@@ -116,16 +118,230 @@ describe('pending discard queue', () => {
     expect(readPendingDiscards(storage)).toEqual([expect.objectContaining(other)])
   })
 
-  it('expires by original creation time even after recent failures', async () => {
+  it('does not expire markers by their original creation time', async () => {
     const storage = memoryStorage()
     enqueuePendingDiscard(storage, request)
     const first = readPendingDiscards(storage)[0]!
     storage.setItem('dsh-side-tasks:pending-discards:v1', JSON.stringify([
       { ...first, createdAt: 10, updatedAt: 900 },
     ]))
+    const discard = vi.fn(async () => { throw new Error('still unavailable') })
+    await flushPendingDiscards(storage, discard, { now: 1000 })
+    expect(discard).toHaveBeenCalledOnce()
+    expect(readPendingDiscards(storage)).toEqual([
+      expect.objectContaining({ ...request, createdAt: 10, attempts: 1 }),
+    ])
+  })
+
+  it('clamps corrupt attempt counts so a bad record cannot bypass the retry bound', () => {
+    const storage = memoryStorage()
+    storage.setItem('dsh-side-tasks:pending-discards:v1', JSON.stringify([
+      { ...request, attempts: -3, createdAt: 1, updatedAt: 1 },
+      { ...request, childSessionId: 'second', attempts: 2.5, createdAt: 1, updatedAt: 1 },
+      { ...request, childSessionId: 'third', attempts: Number.POSITIVE_INFINITY, createdAt: 1, updatedAt: 1 },
+    ]))
+    expect(readPendingDiscards(storage).map(row => row.attempts)).toEqual([0, 0, 0])
+  })
+
+  it('keeps markers another client enqueued between its own successful writes', () => {
+    const storage = memoryStorage()
+    const queue = createDiscardQueue({ storage, discard: vi.fn() as never, shouldSkip: () => true })
+    try {
+      queue.enqueue(request)
+      const other = { ...request, childSessionId: 'other' as never }
+      enqueuePendingDiscard(storage, other)
+      queue.enqueue({ ...request, childSessionId: 'third' as never })
+      expect(readPendingDiscards(storage).map(row => row.childSessionId)).toEqual(['child', 'other', 'third'])
+    } finally {
+      queue.stop()
+    }
+  })
+
+  it('revalidates a forced close queued behind a stalled request and rechecks it with a bounded schedule', async () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
+    const stalled = Promise.withResolvers<never>()
+    const second = { ...request, childSessionId: 'second' as never }
+    let reopened = true
+    const discard = vi.fn((input: typeof request) =>
+      input.childSessionId === request.childSessionId
+        ? stalled.promise
+        : Promise.resolve({ ok: true, value: { discarded: true } } as never))
+    const queue = createDiscardQueue({
+      storage,
+      discard: discard as never,
+      shouldSkip: input => input.childSessionId === second.childSessionId && reopened,
+      canForce: input => !(input.childSessionId === second.childSessionId && reopened),
+    })
+    try {
+      queue.enqueue(request, true)
+      await vi.advanceTimersByTimeAsync(0)
+      queue.enqueue(second, true)
+      stalled.resolve({ ok: true, value: { discarded: true } } as never)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(discard).toHaveBeenCalledTimes(1)
+      // Rechecks stay bounded while the child remains retained elsewhere.
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(discard).toHaveBeenCalledTimes(1)
+      expect(readPendingDiscards(storage).map(row => row.childSessionId)).toEqual(['second'])
+
+      reopened = false
+      queue.reset()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(discard).toHaveBeenCalledTimes(2)
+      expect(readPendingDiscards(storage)).toEqual([])
+    } finally {
+      await queue.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('auto-retries a transient close in the same client lifetime', async () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
     const discard = vi.fn()
-    await flushPendingDiscards(storage, discard, { now: 1000, maxAgeMs: 500 })
+      .mockResolvedValueOnce({ ok: false, error: { code: 'gateway/internal', message: 'offline' } })
+      .mockResolvedValueOnce({ ok: true, value: { discarded: true } })
+    const queue = createDiscardQueue({ storage, discard: discard as never })
+    try {
+      queue.enqueue(request, true)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(discard).toHaveBeenCalledTimes(1)
+      expect(queue.hooks.pendingDiscards.getSnapshot()).toEqual({ pending: 1, busy: false })
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(discard).toHaveBeenCalledTimes(2)
+      expect(queue.hooks.pendingDiscards.getSnapshot()).toEqual({ pending: 0, busy: false })
+    } finally {
+      await queue.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('starts a fresh bounded burst on reconnect after exhaustion and manual retry clears terminal rows', async () => {
+    vi.useFakeTimers()
+    const storage = memoryStorage()
+    const discard = vi.fn(async () => ({
+      ok: false as const, error: { code: 'gateway/internal', message: 'offline' },
+    }))
+    const queue = createDiscardQueue({ storage, discard: discard as never })
+    try {
+      queue.enqueue(request, true)
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(discard).toHaveBeenCalledTimes(5)
+      expect(readPendingDiscards(storage)).toEqual([expect.objectContaining({ attempts: 5 })])
+
+      discard.mockResolvedValue({ ok: true, value: { discarded: true } })
+      queue.reset()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(discard).toHaveBeenCalledTimes(6)
+      expect(readPendingDiscards(storage)).toEqual([])
+
+      enqueuePendingDiscard(storage, request)
+      discard.mockResolvedValue({
+        ok: false, error: { code: 'gateway/bad-request', message: 'terminal' },
+      } as never)
+      queue.enqueue(request, true)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(readPendingDiscards(storage)).toEqual([expect.objectContaining({ terminal: true })])
+      const callsAtTerminal = discard.mock.calls.length
+      discard.mockResolvedValue({ ok: true, value: { discarded: true } })
+      queue.reset()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(discard).toHaveBeenCalledTimes(callsAtTerminal)
+      queue.retry()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(discard).toHaveBeenCalledTimes(callsAtTerminal + 1)
+      expect(readPendingDiscards(storage)).toEqual([])
+    } finally {
+      await queue.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps an in-memory marker and retries when storage is unavailable', async () => {
+    vi.useFakeTimers()
+    const broken: DiscardStorage = {
+      getItem: () => { throw new Error('blocked') },
+      setItem: () => { throw new Error('blocked') },
+      removeItem: () => { throw new Error('blocked') },
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const discard = vi.fn()
+      .mockResolvedValueOnce({ ok: false, error: { code: 'gateway/internal', message: 'offline' } })
+      .mockResolvedValueOnce({ ok: true, value: { discarded: true } })
+    const queue = createDiscardQueue({ storage: broken, discard: discard as never })
+    try {
+      queue.enqueue(request, true)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(queue.hooks.pendingDiscards.getSnapshot().pending).toBe(1)
+      expect(warn).toHaveBeenCalledOnce()
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(discard).toHaveBeenCalledTimes(2)
+      expect(queue.hooks.pendingDiscards.getSnapshot().pending).toBe(0)
+    } finally {
+      await queue.dispose()
+      warn.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('preserves preloaded markers when storage fails after an initial healthy read', async () => {
+    vi.useFakeTimers()
+    const durable = memoryStorage()
+    enqueuePendingDiscard(durable, request)
+    let reads = 0
+    const flaky: DiscardStorage = {
+      getItem: key => {
+        reads++
+        if (reads === 1) return durable.getItem(key)
+        throw new Error('storage read failed')
+      },
+      setItem: () => { throw new Error('storage write failed') },
+      removeItem: () => { throw new Error('storage remove failed') },
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const queue = createDiscardQueue({ storage: flaky, discard: vi.fn() as never, shouldSkip: () => true })
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(reads).toBeGreaterThan(1)
+      expect(queue.hooks.pendingDiscards.getSnapshot().pending).toBe(1)
+      expect(warn).toHaveBeenCalledOnce()
+    } finally {
+      await queue.dispose()
+      warn.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('serializes close requests and awaits the in-flight RPC before disposal', async () => {
+    const storage = memoryStorage()
+    const pending = Promise.withResolvers<never>()
+    const other = { ...request, childSessionId: 'other' as never }
+    const discard = vi.fn(() => pending.promise)
+    const queue = createDiscardQueue({ storage, discard: discard as never })
+    queue.enqueue(request, true)
+    await vi.waitFor(() => expect(discard).toHaveBeenCalledOnce())
+    queue.enqueue(other, true)
+    let disposed = false
+    const disposal = queue.dispose().then(() => { disposed = true })
+    await Promise.resolve()
+    expect(disposed).toBe(false)
+    pending.resolve({ ok: false, error: { code: 'gateway/internal' } } as never)
+    await disposal
+    expect(discard).toHaveBeenCalledOnce()
+    expect(readPendingDiscards(storage).map(row => row.childSessionId)).toEqual(['child', 'other'])
+  })
+
+  it('keeps markers for active references elsewhere', async () => {
+    const storage = memoryStorage()
+    const skip = vi.fn(() => true)
+    const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
+    const queue = createDiscardQueue({ storage, discard, shouldSkip: skip })
+    queue.enqueue(request)
+    await Promise.resolve()
+    await Promise.resolve()
     expect(discard).not.toHaveBeenCalled()
-    expect(readPendingDiscards(storage)).toEqual([])
+    expect(queue.hooks.pendingDiscards.getSnapshot().pending).toBe(1)
+    await queue.dispose()
   })
 })

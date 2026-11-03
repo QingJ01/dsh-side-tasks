@@ -63,4 +63,36 @@ describe('independent side chat creation', () => {
     expect(result.mode).toBe('independent')
     expect(dispose).toHaveBeenCalledOnce()
   })
+
+  it('persists an empty context snapshot when the source has no inherited text', async () => {
+    const append = vi.fn()
+    const child = { id: 'child', session: { append } } as Agent
+    const presets = {
+      resolve: vi.fn(async () => ({ id: 'default' })),
+      mount: vi.fn(async () => ({ id: 'default' })),
+    }
+    const create = vi.fn(async (options: {
+      setup: (ctx: unknown, agent: Agent) => Promise<void>
+    }) => {
+      await options.setup({ get: () => undefined }, child)
+      return { agent: child, dispose: vi.fn(async () => {}) }
+    })
+    await createBlankSideTask(
+      { create } as Pick<AgentRegistry, 'create'>,
+      presets,
+      {
+        id: 'source' as SessionId,
+        cwd: '/work',
+        preset: 'default',
+        permissions: { preset: 'default', sandbox: 'read-only', approval: 'ask' },
+      },
+      undefined,
+      '',
+      new AbortController().signal,
+      vi.fn(async () => {}),
+    )
+    expect(append).toHaveBeenCalledWith('plugin:side-tasks/context', {
+      version: 1, sourceSessionId: 'source', text: '',
+    })
+  })
 })
