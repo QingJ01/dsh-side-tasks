@@ -1,6 +1,16 @@
 import type { ModelSelection } from '@deepseek-ai/dsh-agent'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
+import type {} from '@deepseek-ai/dsh-typert-protocol'
+
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface RemoteErrorDetailsMap {
+    'side-tasks/unsupported-harness': {}
+    'side-tasks/archived-source': {}
+    'side-tasks/non-ordinary-source': {}
+  }
+}
+
 export interface SideTaskDescriptor {
   readonly version: 1
   readonly sourceSessionId: SessionId

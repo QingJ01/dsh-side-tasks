@@ -4,7 +4,7 @@ import type { AgentOptions, ModelSelection } from '@deepseek-ai/dsh-agent'
 import { randomUUID } from 'node:crypto'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-session-query'
 import type {} from '@deepseek-ai/dsh-workspace'
 import { createBlankSideTask, type SideTaskSource } from './blank.ts'
@@ -71,14 +71,14 @@ export class SideTaskService extends TypertRemoteService {
     const permissionPresets = this.ctx.get('permissionPresets') as PermissionPresets | undefined
     if (controller?.supportsSideChatSessions !== true || typeof controller.prompt !== 'function'
       || presets === undefined || permissionPresets === undefined) {
-      throw new Error('This Harness does not support independent side chats.')
+      throw new RemoteError('side-tasks/unsupported-harness', 'This Harness does not support independent side chats.', {})
     }
     signal.throwIfAborted()
-    if (this.ctx.workspaceRegistry.archivedSessionIds.includes(sourceSessionId)) throw new Error('An archived parent cannot create a side chat.')
+    if (this.ctx.workspaceRegistry.archivedSessionIds.includes(sourceSessionId)) throw new RemoteError('side-tasks/archived-source', 'An archived parent cannot create a side chat.', {})
     const observed = await (this.ctx.sessionQuery as Query).observeSession(sourceSessionId, { projectionMode: 'all', signal })
     try {
       const { header, events } = observed
-      if (header.origin !== undefined) throw new Error('Side chats require an ordinary Session.')
+      if (header.origin !== undefined) throw new RemoteError('side-tasks/non-ordinary-source', 'Side chats require an ordinary Session.', {})
       const projected = observed.projections?.values
       const modelSelection = projected?.modelSelection?.next
       const model: AgentOptions | undefined = modelSelection === null || modelSelection === undefined
