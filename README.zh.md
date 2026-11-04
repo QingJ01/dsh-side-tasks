@@ -24,7 +24,7 @@
 
 ## 安装
 
-**0.1.0 尚未发布。** 这里是开发中的 0.1.0，GitHub 上暂时没有 Release 和 tag。发布说明见 [更新日志](CHANGELOG.md)。请从源码构建：
+**0.1.0 已发布。** 可从 npm 安装，或查看 [v0.1.0 Release](https://github.com/QingJ01/dsh-side-tasks/releases/tag/v0.1.0) 与 [更新日志](CHANGELOG.md)。从源码运行：
 
 ```sh
 git clone https://github.com/QingJ01/dsh-side-tasks.git

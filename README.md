@@ -25,7 +25,7 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 
 ## Install
 
-**0.1.0 is unreleased.** This repository is the in-development 0.1.0 and publishes no GitHub releases or tags yet. See the [changelog](CHANGELOG.md) for release notes. Build from the checkout:
+**0.1.0 is released.** Install from npm or see the [v0.1.0 release](https://github.com/QingJ01/dsh-side-tasks/releases/tag/v0.1.0) and the [changelog](CHANGELOG.md). To run from source:
 
 ```sh
 git clone https://github.com/QingJ01/dsh-side-tasks.git

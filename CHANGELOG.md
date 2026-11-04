@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-11-04)
 
 - Independent temporary side chats in the right sidebar, using native Harness Conversation controls and the required Harness adapter.
 - Read-only context inheritance from the latest completed source turns, limited to 120 human/assistant messages and 100,000 characters.
