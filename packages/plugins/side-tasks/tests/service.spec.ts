@@ -3,6 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Agent, AgentRegistry } from '@deepseek-ai/dsh-agent'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
+import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import { SideTaskService } from '../lib/index.js'
 
 vi.mock('@deepseek-ai/dsh-session', async (importOriginal) => {
@@ -17,7 +18,7 @@ vi.mock('@deepseek-ai/dsh-session', async (importOriginal) => {
 const sourceId = 'source' as SessionId
 const childId = 'child' as SessionId
 
-async function serviceFixture(supportsSideChatSessions = true, forkSource = false) {
+async function serviceFixture(supportsSideChatSessions = true, forkSource = false, sourceOrigin?: string) {
   const sourceEvents = [
     { type: 'turn/start', data: {} },
     { type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'source prompt' }] } },
@@ -43,7 +44,7 @@ async function serviceFixture(supportsSideChatSessions = true, forkSource = fals
     expect(id).toBe(sourceId)
     expect(options.projectionMode).toBe('all')
     return {
-      header: { cwd: '/source', agentPreset: 'minimal', ...(forkSource ? { parentSession: 'older-session' as SessionId } : {}) },
+      header: { origin: sourceOrigin, cwd: '/source', agentPreset: 'minimal', ...(forkSource ? { parentSession: 'older-session' as SessionId } : {}) },
       events: sourceEvents,
       inheritedEventCount: forkSource ? 6 : 0,
       projections: { values: {
@@ -58,7 +59,8 @@ async function serviceFixture(supportsSideChatSessions = true, forkSource = fals
   const get = vi.fn()
   const resume = vi.fn()
   ctx.provide('agents', { list: () => [], create, get, resume } as never)
-  ctx.provide('workspaceRegistry', { archivedSessionIds: [], archiveSession } as never)
+  const archivedSessionIds: SessionId[] = []
+  ctx.provide('workspaceRegistry', { archivedSessionIds, archiveSession } as never)
   ctx.provide('sessionQuery', { observeSession } as never)
   ctx.provide('sessionController', { supportsSideChatSessions, prompt } as never)
   ctx.provide('permissionPresets', {
@@ -71,7 +73,7 @@ async function serviceFixture(supportsSideChatSessions = true, forkSource = fals
   } as never)
   await ctx.plugin(SideTaskService)
   return {
-    service: ctx.sideTasks, ctx, create, childEvents, dispose, archiveSession, observeSession, prompt, get, resume,
+    service: ctx.sideTasks, ctx, archivedSessionIds, create, childEvents, dispose, archiveSession, observeSession, prompt, get, resume,
     close: () => ctx.fiber.dispose(),
   }
 }
@@ -112,6 +114,25 @@ describe('side-task Host service', () => {
     expect(create).not.toHaveBeenCalled()
     expect(service.capabilities()).toEqual({ supportsSideChatSessions: false })
     await close()
+  })
+
+  it.each([
+    ['unsupported-harness', false, undefined],
+    ['archived-source', true, undefined],
+    ['non-ordinary-source', true, 'sidechat'],
+  ] as const)('preserves the %s refusal code in the Remote wire carrier', async (reason, supported, origin) => {
+    const fixture = await serviceFixture(supported, false, origin)
+    try {
+      if (reason === 'archived-source') fixture.archivedSessionIds.push(sourceId)
+      const error = await fixture.service.create(sourceId, { prompt: '' }, new AbortController().signal)
+        .then(() => { throw new Error('expected refusal') }, (cause: unknown) => remoteErrorOf(cause))
+      expect(error).toMatchObject({ code: `side-tasks/${reason}`, details: {} })
+      const wire = JSON.parse(JSON.stringify({ code: error?.code, message: error?.message, details: error?.details }))
+      expect(new RemoteError(wire.code, wire.message, wire.details).code).toBe(`side-tasks/${reason}`)
+      expect(fixture.create).not.toHaveBeenCalled()
+    } finally {
+      await fixture.close()
+    }
   })
 
   it('accepts an ordinary fork and snapshots inherited settings without activating its source', async () => {

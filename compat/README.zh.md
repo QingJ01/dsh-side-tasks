@@ -13,10 +13,13 @@ pnpm install --frozen-lockfile
 pnpm run build:artifacts
 ```
 
-使用标准源码配置，同时运行兼容的 Host 与 Client：
+在 Harness 源码目录中，先将构建好的插件安装到同一个 Web profile，再启动兼容的 Host 与 Client（请替换插件的绝对路径）：
 
 ```sh
+pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-tasks/packages/plugins/side-tasks
 pnpm dsh web
 ```
 
 Web 配置位于 `apps/web/cordis.yml`；`pnpm dsh web` 是受支持的源码启动方式。不要将编译文件复制到已安装应用中。在打开 sidechat 日志前，请先安装兼容的 Harness 构建版本：固定版本的读取器会拒绝新增的 `origin` 值。
+
+此流程仅涵盖 Web；未在此验证 Desktop 安装与启动。

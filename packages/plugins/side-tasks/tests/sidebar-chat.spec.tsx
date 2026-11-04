@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { StrictMode } from 'react'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { EmptyChatView, SideChatEmptyState, SideChatStartPage, hasOwnSideChatTurn } from '../src/client/sidebar-chat.tsx'
 import { SideChatPreparations } from '../src/client/preparation.ts'
-import { en, type SideTaskKey } from '../src/client/locales.ts'
+import { en, zh, type SideTaskKey } from '../src/client/locales.ts'
 
 const t = ((key: SideTaskKey) => en[key]) as never
 const address = { parentSessionId: 'parent' as SessionId, childSessionId: 'child' as SessionId, mode: 'continuable' as const }
@@ -54,6 +55,35 @@ describe('native side chat preparation', () => {
       preparations={new SideChatPreparations(create, vi.fn())} t={t} blocked />)
     expect(screen.getByText(en['create.blocked'])).toBeTruthy()
     expect(create).not.toHaveBeenCalled()
+  })
+
+  it.each([en, zh])('localizes creation failures without exposing Remote or thrown payloads', async (locale) => {
+    const payload = 'private source details'
+    const failures = [
+      ['side-tasks/unsupported-harness', 'create.unsupported'],
+      ['side-tasks/archived-source', 'create.archived'],
+      ['side-tasks/non-ordinary-source', 'create.nonOrdinary'],
+    ] as const
+    const create = vi.fn()
+    for (const [code] of failures) {
+      const wire = JSON.parse(JSON.stringify({ code, message: payload, details: {} }))
+      create.mockResolvedValueOnce({ ok: false, error: new RemoteError(wire.code, wire.message, wire.details) })
+    }
+    create.mockResolvedValueOnce({ ok: false, error: { code: 'unknown', message: payload } })
+      .mockRejectedValueOnce(new Error(payload))
+      .mockResolvedValueOnce({ ok: true, value: address })
+    const preparations = new SideChatPreparations(create, vi.fn())
+    const openResource = vi.fn()
+    render(<SideChatStartPage parentSessionId={address.parentSessionId}
+      tab={{ id: 'draft', actions: { openResource } } as never}
+      preparations={preparations} t={((key: SideTaskKey) => locale[key]) as never} />)
+    for (const key of [...failures.map(([, key]) => key), 'create.failed', 'create.failed'] as const) {
+      await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(locale[key]))
+      expect(document.body.textContent).not.toContain(payload)
+      fireEvent.click(screen.getByRole('button', { name: locale.retry }))
+    }
+    await waitFor(() => expect(openResource).toHaveBeenCalledOnce())
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('creates once under StrictMode and replaces the preparation with native Conversation', async () => {

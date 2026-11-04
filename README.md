@@ -21,18 +21,17 @@ A dual-face DeepSeek Harness plugin for temporary, Codex-style side chats. It cr
 
 - DeepSeek Harness `>=0.2.1-rc.5 <0.3.0`
 - Node.js `>=24.9.0` for development
-- A Web or Desktop profile built from Harness RC.5 with the side-chat adapter applied. The patch, safe apply helper, and bilingual instructions are in this repository's [`compat/`](compat/README.md); they are not included in the npm tarball. Stock RC.5 fails closed.
+- A Web profile built from Harness RC.5 with the side-chat adapter applied. The patch, safe apply helper, and bilingual instructions are in this repository's [`compat/`](compat/README.md); they are not included in the npm tarball. Stock RC.5 fails closed.
 
 ## Install
 
-**0.1.0 is unreleased.** This repository is the in-development 0.1.0 and publishes no GitHub releases or tags yet. Build from the checkout:
+**0.1.0 is unreleased.** This repository is the in-development 0.1.0 and publishes no GitHub releases or tags yet. See the [changelog](CHANGELOG.md) for release notes. Build from the checkout:
 
 ```sh
 git clone https://github.com/QingJ01/dsh-side-tasks.git
 cd dsh-side-tasks
 pnpm install
 pnpm build
-dsh plugin --profile desktop add ./packages/plugins/side-tasks
 ```
 
 The compatibility patch and safe apply helper are repository-distributed under [`compat/`](compat/README.md), not included in the npm tarball. Apply the patch to a clean pinned RC.5 Harness source checkout, then build the source profile. The helper requires the exact pinned commit and a clean tracked tree, checks the patch before applying it, and never downloads code or modifies an installed runtime:
@@ -43,16 +42,19 @@ cd /path/to/deepseek-harness
 pnpm install
 pnpm run build:artifacts
 pnpm run build:check
+pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-tasks/packages/plugins/side-tasks
 pnpm dsh web
 ```
 
-Use the Desktop source-profile command documented in `compat/README.md` for Desktop. Restart the patched profile after plugin installation.
+The verified recipe installs into and launches the same `web` profile using the patched source CLI. Replace the plugin path with your checkout's absolute path. Desktop installation is not covered by this recipe.
 
 For local development after editing the same version, remove before adding; pnpm does not re-expand a same-version `file:` tarball:
 
 ```sh
-dsh plugin --profile desktop remove dsh-side-tasks
-dsh plugin --profile desktop add ./packages/plugins/side-tasks
+cd /path/to/deepseek-harness
+pnpm dsh plugin --profile web remove dsh-side-tasks
+pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-tasks/packages/plugins/side-tasks
+pnpm dsh web
 ```
 
 ## Behavior
@@ -90,6 +92,10 @@ pnpm --filter dsh-side-tasks pack --pack-destination dist
 ```
 
 The package has Host (`src/index.ts`) and browser (`src/client/index.ts`) faces. `src/client/sidebar-chat.tsx` owns the resource, empty state, and tab adapter. Remote metadata embeds the protocol's lazy info factory so profile-level protocol hoisting cannot break the subpath import; authorization readers name the source or child Session IDs directly. Build artifacts are copied into `lib/` by `scripts/postbuild.mjs`.
+
+## Test coverage
+
+Tests cover bounded completed-turn context, independent child creation and ownership, native Conversation and draft persistence, model/permission delegation, cold attachment and saved-context fallback, cancellation and teardown, close-only archival, durable bounded retries and storage failures, retry notice rendering, resource retention, Remote validation, and package exports.
 
 ## License
 

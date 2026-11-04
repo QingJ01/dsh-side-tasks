@@ -19,6 +19,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - name: Verify Harness adapter pack
+        run: node compat/verify-adapter-pack.mjs
       - name: Verify package contents
         run: |
           pnpm --filter dsh-side-tasks pack --pack-destination dist

@@ -20,18 +20,17 @@
 
 - DeepSeek Harness `>=0.2.1-rc.5 <0.3.0`
 - 开发时需要 Node.js `>=24.9.0`
-- 使用应用了本仓库 [`compat/`](compat/README.md) 适配补丁的 RC.5 Harness 源码构建 Web/Desktop profile。补丁、Node 安全应用脚本和中英安装说明由仓库提供，不包含在 npm tarball 中。未经修改的 RC.5 会安全拒绝创建。
+- 使用应用了本仓库 [`compat/`](compat/README.md) 适配补丁的 RC.5 Harness 源码构建 Web profile。补丁、Node 安全应用脚本和中英安装说明由仓库提供，不包含在 npm tarball 中。未经修改的 RC.5 会安全拒绝创建。
 
 ## 安装
 
-**0.1.0 尚未发布。** 这里是开发中的 0.1.0，GitHub 上暂时没有 Release 和 tag。请从源码构建：
+**0.1.0 尚未发布。** 这里是开发中的 0.1.0，GitHub 上暂时没有 Release 和 tag。发布说明见 [更新日志](CHANGELOG.md)。请从源码构建：
 
 ```sh
 git clone https://github.com/QingJ01/dsh-side-tasks.git
 cd dsh-side-tasks
 pnpm install
 pnpm build
-dsh plugin --profile desktop add ./packages/plugins/side-tasks
 ```
 
 先将补丁应用到干净且固定在 RC.5 commit 的 Harness 源码树，再构建并启动源码 profile；脚本会校验精确 commit、干净 tracked tree，并在写入前运行 `git apply --check`，不会下载或修改已安装的私有 runtime：
@@ -42,16 +41,19 @@ cd /path/to/deepseek-harness
 pnpm install
 pnpm run build:artifacts
 pnpm run build:check
+pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-tasks/packages/plugins/side-tasks
 pnpm dsh web
 ```
 
-桌面 profile 命令见 [`compat/README.md`](compat/README.md)。安装后重启已打补丁的 Harness，打开一个会话并点击顶部的**侧边聊天**。
+此已验证流程使用打补丁的源码 CLI，将插件安装到并启动同一个 `web` profile。请将插件路径替换为本地检出的绝对路径。本流程不涵盖 Desktop 安装。
 
 同一版本修改后需要先移除再安装（pnpm 不会重新展开同版本 `file:` 包）：
 
 ```sh
-dsh plugin --profile desktop remove dsh-side-tasks
-dsh plugin --profile desktop add ./packages/plugins/side-tasks
+cd /path/to/deepseek-harness
+pnpm dsh plugin --profile web remove dsh-side-tasks
+pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-tasks/packages/plugins/side-tasks
+pnpm dsh web
 ```
 
 ## 使用与生命周期
@@ -99,7 +101,7 @@ pnpm --filter dsh-side-tasks pack --pack-destination dist
 
 ## 测试覆盖
 
-测试覆盖：继承上下文格式化与回合截断、标签复用及收起后重新展开、无 seed 创建、原生模型选择委托与 composer 控件非替换、父会话不变性、冷恢复模型、配置 Remote 校验、专用 provider 的回合截断、caller 投递、空任务与取消、Gateway 取消信号、Remote 参数/结果钉扎、真实 keyed SlotCore 所有权、标签地址与标题、归档优先的关闭生命周期、跨版本 descriptor 所有权校验、拒绝伪装标签误删、父 Agent 离线归档、持久化且有界的重试队列、存储 getter 抛错隔离、UI 异步注册失败回滚与 locale 冲突隔离、idle 创建时释放 writer、StrictMode 去重、创建后关闭的迟到结果清理、原生 Conversation 接入、首回合边界、并发重试队列合并、header 单面板打开原生会话、资源失败帧、多资源引用与最终释放、卸载/释放时取消上下文读取并忽略迟到结果、子会话/归档父会话禁止创建、包导出完整性，以及临时空状态提示。
+测试覆盖：有界的已完成回合上下文、独立 child 创建与所有权、原生 Conversation 与草稿持久化、模型及权限委托、冷接入与已保存上下文回退、取消与卸载、仅关闭时归档、持久化有界重试及存储失败、重试提示渲染、资源引用保留、Remote 校验和包导出。
 
 ## License
 

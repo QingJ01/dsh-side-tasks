@@ -11,7 +11,7 @@ import {
   Button,
   IconNewChatOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   PropsLocale,
@@ -29,7 +29,7 @@ import {
   isBlankSideTaskLabel,
   sideTaskDisplayLabel,
 } from '../shared.ts'
-import { NS } from './locales.ts'
+import { NS, type SideTaskKey } from './locales.ts'
 
 export const SIDE_CHAT_SLOT = 'dsh-side-tasks.conversation'
 const SIDEBAR_CHAT_ID = 'dsh-side-tasks'
@@ -205,27 +205,36 @@ interface SideChatStartPageProps {
   readonly blocked?: boolean
 }
 
+function creationFailureKey(code?: string): SideTaskKey {
+  switch (code) {
+    case 'side-tasks/unsupported-harness': return 'create.unsupported'
+    case 'side-tasks/archived-source': return 'create.archived'
+    case 'side-tasks/non-ordinary-source': return 'create.nonOrdinary'
+    default: return 'create.failed'
+  }
+}
+
 /** Prepare an idle child; all editable UI comes from the native Conversation. */
 export function SideChatStartPage({
   parentSessionId, tab, preparations, t, blocked = false,
 }: SideChatStartPageProps) {
-  const [error, setError] = useState<string | undefined>()
+  const [failureKey, setFailureKey] = useState<SideTaskKey | undefined>()
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     if (blocked) return
     let mounted = true
-    setError(undefined)
+    setFailureKey(undefined)
     void preparations.prepare(parentSessionId, tab.id).then(result => {
       if (!mounted) return
       if (!result.ok) {
-        setError(result.error.message)
+        setFailureKey(creationFailureKey(result.error.code))
         return
       }
       preparations.transfer(parentSessionId, tab.id, address => {
         tab.actions.openResource(sideTaskChatAddress(address), { replaceTab: true })
       })
     }).catch((cause: unknown) => {
-      if (mounted) setError(cause instanceof Error ? cause.message : String(cause))
+      if (mounted) setFailureKey(creationFailureKey(remoteErrorOf(cause)?.code))
     })
     // Hiding a tab or switching parents is not closing it. The explicit close
     // handler owns cancellation and late-result cleanup across remounts.
@@ -234,9 +243,9 @@ export function SideChatStartPage({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
       alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }} data-side-chat-preparing="">
-      {blocked ? t('create.blocked') : error === undefined ? t('loading') : (
+      {blocked ? t('create.blocked') : failureKey === undefined ? t('loading') : (
         <>
-          <p role="alert">{t('create.failed', { message: error })}</p>
+          <p role="alert">{t(failureKey)}</p>
           <Button onClick={() => { setAttempt(value => value + 1) }}>{t('retry')}</Button>
         </>
       )}
