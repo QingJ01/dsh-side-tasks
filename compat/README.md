@@ -13,10 +13,13 @@ pnpm install --frozen-lockfile
 pnpm run build:artifacts
 ```
 
-Use the standard source profile to run the compatible Host and Client together:
+From the Harness checkout, install the built plugin into the same Web profile before launching the compatible Host and Client together (replace the absolute plugin path):
 
 ```sh
+pnpm dsh plugin --profile web add /absolute/path/to/dsh-side-tasks/packages/plugins/side-tasks
 pnpm dsh web
 ```
 
 The Web profile is `apps/web/cordis.yml`; `pnpm dsh web` is the supported source launch path. Do not copy compiled files into an installed app. Install a compatible Harness build before opening sidechat logs: the pinned reader refuses their new `origin` value.
+
+This recipe covers Web only; Desktop installation and launch are not verified here.

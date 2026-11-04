@@ -15,8 +15,9 @@ Build the package from the repository root:
 ```sh
 pnpm install
 pnpm build
-dsh plugin --profile desktop add ./packages/plugins/side-tasks
 ```
+
+Install and launch with the patched Harness Web profile using the full installation recipe linked above; do not install into a different profile.
 
 For same-version local changes, remove the plugin before re-adding because
 pnpm does not re-expand a same-version `file:` package.

@@ -209,23 +209,23 @@ interface SideChatStartPageProps {
 export function SideChatStartPage({
   parentSessionId, tab, preparations, t, blocked = false,
 }: SideChatStartPageProps) {
-  const [error, setError] = useState<string | undefined>()
+  const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     if (blocked) return
     let mounted = true
-    setError(undefined)
+    setFailed(false)
     void preparations.prepare(parentSessionId, tab.id).then(result => {
       if (!mounted) return
       if (!result.ok) {
-        setError(result.error.message)
+        setFailed(true)
         return
       }
       preparations.transfer(parentSessionId, tab.id, address => {
         tab.actions.openResource(sideTaskChatAddress(address), { replaceTab: true })
       })
-    }).catch((cause: unknown) => {
-      if (mounted) setError(cause instanceof Error ? cause.message : String(cause))
+    }).catch(() => {
+      if (mounted) setFailed(true)
     })
     // Hiding a tab or switching parents is not closing it. The explicit close
     // handler owns cancellation and late-result cleanup across remounts.
@@ -234,9 +234,9 @@ export function SideChatStartPage({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
       alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }} data-side-chat-preparing="">
-      {blocked ? t('create.blocked') : error === undefined ? t('loading') : (
+      {blocked ? t('create.blocked') : !failed ? t('loading') : (
         <>
-          <p role="alert">{t('create.failed', { message: error })}</p>
+          <p role="alert">{t('create.failed')}</p>
           <Button onClick={() => { setAttempt(value => value + 1) }}>{t('retry')}</Button>
         </>
       )}
