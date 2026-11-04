@@ -166,8 +166,8 @@ describe('client creation and close lifecycle', () => {
       openSideChat: () => void
     } } } | undefined
     let closeHandler: ((parent: SessionId, tab: { id: string; contentId: string }) => void) | undefined
+    const injectedSeats: string[] = []
     let bodyRegistration: { name?: string; children?: Record<string, unknown> } | undefined
-    let overlayRegistration: { inject?: () => Record<string, unknown> } | undefined
     let connectionReset: (() => void) | undefined
     const create = vi.fn(async () => ({ ok: true as const, value: address }))
     const discard = vi.fn(async () => ({ ok: true as const, value: { discarded: true as const } }))
@@ -200,13 +200,9 @@ describe('client creation and close lifecycle', () => {
         entries: () => [{ component: () => null, options: {}, inject: () => ({}) }],
         subscribe: () => () => {},
         inject: (seat: string, callback: () => unknown) => {
+          injectedSeats.push(seat)
           const value = callback() as typeof registration
           if (seat === 'conversation.session.header.utilities') registration = value
-          if (seat === 'shell.overlay') {
-            overlayRegistration = (value as {
-              definition: { inject?: () => Record<string, unknown> }
-            }).definition
-          }
           return value
         },
         register: (definition: {
@@ -252,13 +248,10 @@ describe('client creation and close lifecycle', () => {
     const dispose = await apply(ctx as never)
 
     expect(registeredSlots.filter(name => name.startsWith('conversation.input.'))).toEqual([])
-    expect(overlayRegistration?.inject).toEqual(expect.any(Function))
+    // Closing is silent: archives retry in the background with no overlay.
+    expect(injectedSeats).not.toContain('shell.overlay')
     expect(connectionReset).toEqual(expect.any(Function))
-    const noticeFace = overlayRegistration!.inject!()
-    expect(noticeFace.hooks).toBeDefined()
-    expect(typeof noticeFace.retryDiscards).toBe('function')
     connectionReset!()
-    noticeFace.retryDiscards()
     expect(mountRemote).toHaveBeenCalledOnce()
     expect(registration).toBeDefined()
     expect(registerCloseHandler).toHaveBeenCalledWith(SIDE_CHAT_KIND, expect.any(Function))

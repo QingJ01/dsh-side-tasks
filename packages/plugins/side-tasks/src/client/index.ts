@@ -23,7 +23,6 @@ import {
   createDiscardQueue,
   type DiscardQueue,
 } from './discard-queue.ts'
-import { DiscardNotice } from './DiscardNotice.tsx'
 import { SideTaskAction } from './SideTaskAction.tsx'
 import { registerSideChat } from './sidebar-chat.tsx'
 import { SideChatPreparations } from './preparation.ts'
@@ -124,15 +123,6 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       }
     }, 'side-tasks: discard queue')
     scope.effect(() => ctx.on('connection/reset', () => { discardQueue.reset() }), 'side-tasks: discard reconnect')
-    scope.slots.inject('shell.overlay', () => scope.slots.register({
-      name: 'shell.overlay',
-      id: 'side-tasks.discard-notice',
-      locale: NS,
-      inject: () => ({
-        hooks: discardQueue.hooks,
-        retryDiscards: () => { discardQueue.retry() },
-      }),
-    }, DiscardNotice))
     const preparations = new SideChatPreparations((parent, prompt) => createSideTask(parent, prompt), address => {
       discardQueue.enqueue({
         parentSessionId: address.parentSessionId,

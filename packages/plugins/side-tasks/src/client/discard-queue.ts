@@ -258,6 +258,7 @@ export function createDiscardQueue(options: DiscardQueueOptions): DiscardQueue {
   let inFlightKey: string | undefined
   const forceFirst = new Set<string>()
   const rechecks = new Map<string, number>()
+  const warned = new Set<string>()
 
   const publish = (): void => {
     const next = { pending: readPendingDiscards(storage).length, busy: snapshot.busy }
@@ -312,6 +313,16 @@ export function createDiscardQueue(options: DiscardQueueOptions): DiscardQueue {
         rechecks.delete(key)
         if (inFlightKey === key) inFlightKey = undefined
         const latest = readPendingDiscards(storage).find(item => keyOf(item) === key)
+        // Closing is silent by design: exhausted or rejected retries stay out
+        // of the UI and report once in the browser console instead.
+        if (latest !== undefined && (latest.terminal === true || latest.attempts >= MAX_ATTEMPTS)) {
+          if (!warned.has(key)) {
+            warned.add(key)
+            console.warn(latest.terminal === true
+              ? `side-tasks: archiving ${key} was rejected; the side chat stays hidden from the list.`
+              : `side-tasks: archiving ${key} is still unconfirmed after ${latest.attempts} attempts; it retries after reconnection.`)
+          }
+        }
         if (latest !== undefined && latest.attempts > row.attempts && latest.terminal !== true) {
           schedule(latest.attempts)
         }

@@ -74,7 +74,7 @@ pnpm dsh web
 
 **Legacy chats:** Existing continuable side-task addresses are recognized only to show a migration notice and offer a safe close path. A cold legacy child can be archived after a query-only ownership check. A resident legacy child is refused; restart the patched Harness first, then close it or create a new independent side chat. The plugin never resumes, configures, or sends to legacy children and does not rewrite historical logs.
 
-Close writes a browser-local pending marker before its Remote request and retries it in serial, bounded five-attempt bursts with backoff. Exhausted or terminal markers remain visible for an explicit Retry; reconnects retry transient markers, and children still retained elsewhere are skipped. If browser storage is unavailable, the marker remains in memory and retries while the application stays open.
+Close is silent: the tab disappears immediately, while a browser-local pending marker drives the Remote stop/archive request in serial, bounded five-attempt bursts with backoff. Reconnects retry transient markers, and children still retained elsewhere are skipped. Terminal or exhausted failures stay logged in the browser console instead of raising an overlay. If browser storage is unavailable, the marker remains in memory and retries while the application stays open.
 
 The inherited background is the parent's latest completed-turn conversation: user input and assistant replies, excluding an in-flight turn and non-human context injections. It is read again when a child is cold-resumed, so a resumed side chat inherits the parent's progress up to that moment. No parent turn is copied into the child's transcript, so the child's messages and token usage stay its own.
 
@@ -95,7 +95,7 @@ The package has Host (`src/index.ts`) and browser (`src/client/index.ts`) faces.
 
 ## Test coverage
 
-Tests cover bounded completed-turn context, independent child creation and ownership, native Conversation and draft persistence, model/permission delegation, cold attachment and saved-context fallback, cancellation and teardown, close-only archival, durable bounded retries and storage failures, retry notice rendering, resource retention, Remote validation, and package exports.
+Tests cover bounded completed-turn context, independent child creation and ownership, native Conversation and draft persistence, model/permission delegation, cold attachment and saved-context fallback, cancellation and teardown, close-only archival, durable bounded retries and storage failures, silent background close, resource retention, Remote validation, and package exports.
 
 ## License
 
